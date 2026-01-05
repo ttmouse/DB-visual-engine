@@ -166,6 +166,13 @@ const App: React.FC = () => {
     return saved ? parseFloat(saved) : 50;
   });
   const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+
+  // Right panel (Chat/History) resizable state
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('unimage_right_panel_width');
+    return saved ? parseInt(saved) : 320;
+  });
+  const [isDraggingRightDivider, setIsDraggingRightDivider] = useState(false);
   // Removed isGlobalDragging state as we use localized drop zones now
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const analyzeAbortRef = useRef<AbortController | null>(null);
@@ -225,6 +232,33 @@ const App: React.FC = () => {
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isDraggingDivider]);
+
+  // Handle right panel divider drag (for Chat/History column)
+  useEffect(() => {
+    if (!isDraggingRightDivider) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!mainRef.current) return;
+      const rect = mainRef.current.getBoundingClientRect();
+      const newWidth = rect.right - e.clientX;
+      // Clamp between 200px and 500px
+      const clampedWidth = Math.min(500, Math.max(200, newWidth));
+      setRightPanelWidth(clampedWidth);
+      // Save immediately during drag for persistence
+      localStorage.setItem('unimage_right_panel_width', clampedWidth.toString());
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingRightDivider(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingRightDivider]);
 
   // Handle image zoom update
   const handleZoomChange = (newZoom: ImageZoomState) => {
@@ -1448,98 +1482,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* History Panel */}
-      {state.isHistoryOpen && (
-        <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setState(prev => ({ ...prev, isHistoryOpen: false }))}>
-          <div
-            className="absolute right-0 top-0 bottom-0 w-[400px] bg-stone-900 shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col border-l border-stone-800"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="p-6 border-b border-stone-800 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-stone-800 rounded-xl"><Icons.History size={18} className="text-stone-400" /></div>
-                <h2 className="text-lg font-serif font-bold text-stone-200">历史记录</h2>
-              </div>
-              <button
-                onClick={() => setState(prev => ({ ...prev, isHistoryOpen: false }))}
-                className="p-2 hover:bg-stone-800 rounded-lg transition-colors"
-              >
-                <Icons.X size={20} className="text-stone-500" />
-              </button>
-            </div>
-
-            {/* History List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-              {state.history.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-stone-600 space-y-3">
-                  <Icons.Image size={48} strokeWidth={1} />
-                  <p className="text-sm">暂无生成记录</p>
-                </div>
-              ) : (
-                state.history.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-stone-950 rounded-2xl p-4 space-y-3 hover:bg-stone-800 transition-colors cursor-pointer group border border-stone-800"
-                    onClick={() => {
-                      // 加载提示词到编辑器
-                      setState(prev => ({
-                        ...prev,
-                        editablePrompt: item.prompt,
-                        promptCache: { ...prev.promptCache, CN: item.prompt }
-                      }));
-                      setActiveTab('STUDIO');
-
-                      // 显示大图
-                      if (item.generatedImage) {
-                        setFullscreenImg(`data:image/png;base64,${item.generatedImage}`);
-                      }
-                    }}
-                  >
-                    {/* Images Row */}
-                    <div className="flex gap-3">
-                      {/* Original Image */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden border border-stone-700 flex-shrink-0">
-                        <img
-                          src={`data:${item.mimeType || 'image/png'};base64,${item.originalImage}`}
-                          alt="Original"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      {/* Arrow */}
-                      <div className="flex items-center text-stone-600">
-                        <Icons.ArrowRight size={16} />
-                      </div>
-                      {/* Generated Image */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-orange-900/50 flex-shrink-0 shadow-sm">
-                        {item.generatedImage ? (
-                          <img
-                            src={`data:image/png;base64,${item.generatedImage}`}
-                            alt="Generated"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-stone-800 flex items-center justify-center text-stone-600">
-                            <Icons.Image size={20} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* Prompt Preview */}
-                    <p className="text-xs text-stone-400 line-clamp-2 leading-relaxed">{item.prompt}</p>
-                    {/* Timestamp */}
-                    <div className="flex items-center gap-2 text-[10px] text-stone-600">
-                      <Icons.Clock size={10} />
-                      {new Date(item.timestamp).toLocaleString('zh-CN')}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/90 backdrop-blur-md border-b border-stone-800 h-16 flex items-center justify-between px-10">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowLanding(true)}>
           <span className="font-serif font-bold text-xl tracking-tight text-stone-200">UnImage <span className="text-orange-500 text-sm align-top">PRO</span></span>
@@ -1572,7 +1514,7 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main ref={mainRef} className={`fixed top-24 bottom-28 left-8 right-8 max-w-[1920px] mx-auto flex gap-0 z-0 ${isDraggingDivider ? 'select-none' : ''}`}>
+      <main ref={mainRef} className={`fixed top-24 bottom-28 left-8 right-8 max-w-[1920px] mx-auto flex gap-0 z-0 ${(isDraggingDivider || isDraggingRightDivider) ? 'select-none' : ''}`}>
         {/* Left Panel: Assets & References */}
         <div style={{ width: `${leftPanelWidth}%` }} className="flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
           <PanelHeader title="Visual Assets">
@@ -1712,16 +1654,134 @@ const App: React.FC = () => {
             ) : renderTabContent()}
           </div>
         </div>
-      </main>
 
-      {/* Chat Drawer */}
-      <ChatDrawer
-        isOpen={isChatDrawerOpen}
-        onClose={() => setIsChatDrawerOpen(false)}
-        messages={chatMessages}
-        onApplySuggestions={handleApplySuggestions}
-        onToggleSuggestion={handleToggleSuggestion}
-      />
+        {/* Third Column: History Panel (inline, not overlay) */}
+        {state.isHistoryOpen && (
+          <>
+            {/* Draggable Divider for right panel */}
+            <div
+              onMouseDown={() => setIsDraggingRightDivider(true)}
+              className={`w-2 cursor-col-resize flex items-center justify-center group hover:bg-stone-700/50 transition-colors ${isDraggingRightDivider ? 'bg-orange-500/30' : ''}`}
+            >
+              <div className={`w-0.5 h-12 rounded-full transition-colors ${isDraggingRightDivider ? 'bg-orange-500' : 'bg-stone-700 group-hover:bg-stone-500'}`} />
+            </div>
+
+            {/* History Column */}
+            <div style={{ width: `${rightPanelWidth}px` }} className="flex-shrink-0 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
+              <PanelHeader title="历史记录">
+                <button
+                  onClick={() => setState(prev => ({ ...prev, isHistoryOpen: false }))}
+                  className="p-1.5 text-stone-500 hover:text-stone-300 transition-colors rounded-lg hover:bg-stone-800"
+                  title="关闭"
+                >
+                  <Icons.X size={14} />
+                </button>
+              </PanelHeader>
+
+              <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+                {state.history.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-stone-600 space-y-3">
+                    <Icons.Image size={40} strokeWidth={1} />
+                    <p className="text-xs">暂无生成记录</p>
+                  </div>
+                ) : (
+                  state.history.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-stone-950 rounded-xl p-3 space-y-2 hover:bg-stone-800 transition-colors cursor-pointer group border border-stone-800"
+                      onClick={() => {
+                        setState(prev => ({
+                          ...prev,
+                          editablePrompt: item.prompt,
+                          promptCache: { ...prev.promptCache, CN: item.prompt }
+                        }));
+                        setActiveTab('STUDIO');
+                        if (item.generatedImage) {
+                          setFullscreenImg(`data:image/png;base64,${item.generatedImage}`);
+                        }
+                      }}
+                    >
+                      {/* Images Row */}
+                      <div className="flex gap-2">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden border border-stone-700 flex-shrink-0">
+                          <img
+                            src={`data:${item.mimeType || 'image/png'};base64,${item.originalImage}`}
+                            alt="Original"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex items-center text-stone-600">
+                          <Icons.ArrowRight size={12} />
+                        </div>
+                        <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-orange-900/50 flex-shrink-0">
+                          {item.generatedImage ? (
+                            <img
+                              src={`data:image/png;base64,${item.generatedImage}`}
+                              alt="Generated"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-stone-800 flex items-center justify-center text-stone-600">
+                              <Icons.Image size={16} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-stone-400 line-clamp-2 leading-relaxed">{item.prompt}</p>
+                      <div className="flex items-center gap-1 text-[9px] text-stone-600">
+                        <Icons.Clock size={8} />
+                        {new Date(item.timestamp).toLocaleString('zh-CN')}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+        {/* Third Column: Chat Panel (inline, not overlay) */}
+        {isChatDrawerOpen && (
+          <>
+            {/* Draggable Divider for right panel */}
+            <div
+              onMouseDown={() => setIsDraggingRightDivider(true)}
+              className={`w-2 cursor-col-resize flex items-center justify-center group hover:bg-stone-700/50 transition-colors ${isDraggingRightDivider ? 'bg-orange-500/30' : ''}`}
+            >
+              <div className={`w-0.5 h-12 rounded-full transition-colors ${isDraggingRightDivider ? 'bg-orange-500' : 'bg-stone-700 group-hover:bg-stone-500'}`} />
+            </div>
+
+            {/* Chat Column */}
+            <div style={{ width: `${rightPanelWidth}px` }} className="flex-shrink-0 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
+              <PanelHeader title="AI 助手">
+                <button
+                  onClick={() => setIsChatDrawerOpen(false)}
+                  className="p-1.5 text-stone-500 hover:text-stone-300 transition-colors rounded-lg hover:bg-stone-800"
+                  title="关闭"
+                >
+                  <Icons.X size={14} />
+                </button>
+              </PanelHeader>
+
+              <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+                {chatMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-stone-600 space-y-3">
+                    <Icons.Sparkles size={32} strokeWidth={1} />
+                    <p className="text-xs">暂无对话记录</p>
+                  </div>
+                ) : (
+                  chatMessages.map((msg) => (
+                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs ${msg.role === 'user' ? 'bg-stone-700 text-white' : 'bg-stone-800 border border-stone-700 text-stone-200'}`}>
+                        {msg.content}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </main>
 
       {/* Persistence History Bottom Bar */}
       {/* Persistence History Bottom Bar */}
