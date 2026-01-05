@@ -35,6 +35,11 @@ const INITIAL_RESULTS = {
   [AgentRole.SORA_VIDEOGRAPHER]: { role: AgentRole.SORA_VIDEOGRAPHER, content: '', isStreaming: false, isComplete: false },
 };
 
+
+
+import { ImageZoomState } from './utils/zoom';
+// ... other imports
+
 const INITIAL_STATE: AppState = {
   image: null, mimeType: '', isProcessing: false, activeRole: null, results: INITIAL_RESULTS,
   generatedImage: null, generatedImages: [], isGeneratingImage: false,
@@ -218,40 +223,9 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Handle image zoom with mouse wheel (Figma-style: zoom centered on pointer)
-  const handleImageZoom = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-
-    const container = e.currentTarget;
-    const rect = container.getBoundingClientRect();
-
-    // Mouse position relative to container center (in pixels)
-    const mouseX = e.clientX - rect.left - rect.width / 2;
-    const mouseY = e.clientY - rect.top - rect.height / 2;
-
-    // Zoom direction and factor
-    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const oldScale = imageZoom.scale;
-    const newScale = Math.max(1, Math.min(4, oldScale * zoomFactor));
-
-    if (newScale === oldScale) return;
-
-    // Figma-style zoom: keep the point under cursor fixed
-    // Formula: newOffset = mousePos - (mousePos - oldOffset) * (newScale / oldScale)
-    const scaleRatio = newScale / oldScale;
-    const newPanX = mouseX - (mouseX - imageZoom.panX) * scaleRatio;
-    const newPanY = mouseY - (mouseY - imageZoom.panY) * scaleRatio;
-
-    // When scale is 1, reset to center
-    if (newScale === 1) {
-      setImageZoom({ scale: 1, panX: 0, panY: 0 });
-    } else {
-      setImageZoom({
-        scale: newScale,
-        panX: newPanX,
-        panY: newPanY
-      });
-    }
+  // Handle image zoom update
+  const handleZoomChange = (newZoom: ImageZoomState) => {
+    setImageZoom(newZoom);
   };
 
   // Reset zoom when image changes
@@ -1245,15 +1219,19 @@ const App: React.FC = () => {
                 ref={(el) => {
                   if (el) {
                     el.style.height = 'auto';
-                    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+                    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+                    el.style.overflowY = el.scrollHeight > 200 ? 'auto' : 'hidden';
                   }
                 }}
                 value={aiInput}
                 onChange={(e) => {
                   setAiInput(e.target.value);
                   // Auto-resize
-                  e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                  const target = e.target;
+                  target.style.height = 'auto';
+                  const newHeight = Math.min(target.scrollHeight, 200);
+                  target.style.height = newHeight + 'px';
+                  target.style.overflowY = target.scrollHeight > 200 ? 'auto' : 'hidden';
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey && aiInput.trim()) {
@@ -1264,7 +1242,7 @@ const App: React.FC = () => {
                   }
                 }}
                 placeholder={isAnalyzing ? "正在分析差异..." : "输入 AI 指令..."}
-                className={`w-full bg-transparent border-none text-sm outline-none text-stone-200 placeholder:text-stone-500 resize-none min-h-[24px] max-h-[120px] leading-relaxed pr-24 ${isAnalyzing ? 'placeholder:animate-pulse' : ''}`}
+                className={`w-full bg-transparent border-none text-sm outline-none text-stone-200 placeholder:text-stone-500 resize-none min-h-[24px] max-h-[200px] leading-relaxed pr-24 ${isAnalyzing ? 'placeholder:animate-pulse' : ''}`}
                 disabled={isChatProcessing || isAnalyzing}
                 rows={1}
               />
@@ -1610,7 +1588,7 @@ const App: React.FC = () => {
                       isAnalyzingLayout={state.isAnalyzingLayout}
                       onFullscreen={() => { setFullscreenImg(displayImage); setIsFullscreenComparison(true); }}
                       zoom={imageZoom}
-                      onZoom={handleImageZoom}
+                      onZoomChange={handleZoomChange}
                     />
                   ) : (
                     <ImageViewer
@@ -1622,7 +1600,7 @@ const App: React.FC = () => {
                       isAnalyzingLayout={state.isAnalyzingLayout}
                       onFullscreen={() => setFullscreenImg(`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`)}
                       zoom={imageZoom}
-                      onZoom={handleImageZoom}
+                      onZoomChange={handleZoomChange}
                     />
                   )
                 ) : (
@@ -1635,7 +1613,7 @@ const App: React.FC = () => {
                     isAnalyzingLayout={state.isAnalyzingLayout}
                     onFullscreen={() => setFullscreenImg(displayImage)}
                     zoom={imageZoom}
-                    onZoom={handleImageZoom}
+                    onZoomChange={handleZoomChange}
                   />
                 )}
               </div>

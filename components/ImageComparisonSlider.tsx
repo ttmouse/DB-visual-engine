@@ -2,12 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Icons } from './Icons';
 import { LayoutOverlay } from './LayoutOverlay';
 import { LayoutElement } from '../types';
-
-interface ImageZoom {
-  scale: number;
-  panX: number;
-  panY: number;
-}
+import { ImageZoomState, calculateNewZoom } from '../utils/zoom';
 
 interface ImageComparisonSliderProps {
   beforeImage: string;
@@ -19,8 +14,8 @@ interface ImageComparisonSliderProps {
   onToggleLayout?: () => void;
   isAnalyzingLayout?: boolean;
   onFullscreen?: () => void;
-  zoom?: ImageZoom;
-  onZoom?: (e: React.WheelEvent<HTMLDivElement>) => void;
+  zoom?: ImageZoomState;
+  onZoomChange?: (newZoom: ImageZoomState) => void;
 }
 
 export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
@@ -34,7 +29,7 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
   isAnalyzingLayout,
   onFullscreen,
   zoom = { scale: 1, panX: 0, panY: 0 },
-  onZoom,
+  onZoomChange,
 }) => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
@@ -97,6 +92,37 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
     }
   }, [isDragging]);
 
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!onZoomChange || !containerRef.current) return;
+    e.preventDefault();
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const eventOffsetX = e.clientX - rect.left;
+    const eventOffsetY = e.clientY - rect.top;
+
+    // Determine the center of the image being zoomed
+    let centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    // Side-by-side mode adjustment
+    if (useSideBySide) {
+      if (eventOffsetX < rect.width / 2) {
+        // Left Image Center is at 25% width
+        centerX = rect.width / 4;
+      } else {
+        // Right Image Center is at 75% width
+        centerX = (rect.width * 3) / 4;
+      }
+    }
+
+    // Mouse relative to the chosen center
+    const mouseX = eventOffsetX - centerX;
+    const mouseY = eventOffsetY - centerY;
+
+    const newZoom = calculateNewZoom(zoom, mouseX, mouseY, e.deltaY);
+    onZoomChange(newZoom);
+  };
+
   const transformStyle = zoom.scale > 1
     ? {
       transform: `translate(${zoom.panX}px, ${zoom.panY}px) scale(${zoom.scale})`,
@@ -110,7 +136,7 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
       <div
         ref={containerRef}
         className={`relative rounded-xl border border-stone-700 bg-stone-950 overflow-hidden select-none group h-full w-full ${className}`}
-        onWheel={onZoom}
+        onWheel={handleWheel}
       >
         <div className="absolute inset-0 flex">
           {/* Before Image */}
@@ -185,7 +211,7 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
     <div
       ref={containerRef}
       className={`relative rounded-xl border border-stone-700 bg-stone-950 overflow-hidden select-none group h-full w-full ${className}`}
-      onWheel={onZoom}
+      onWheel={handleWheel}
     >
 
       <img
@@ -218,11 +244,13 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
       </div>
 
       {/* Zoom indicator */}
-      {zoom.scale > 1 && (
-        <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/60 backdrop-blur rounded-lg text-[10px] font-bold text-white z-30">
-          {Math.round(zoom.scale * 100)}%
-        </div>
-      )}
+      {
+        zoom.scale > 1 && (
+          <div className="absolute bottom-3 left-3 px-2 py-1 bg-black/60 backdrop-blur rounded-lg text-[10px] font-bold text-white z-30">
+            {Math.round(zoom.scale * 100)}%
+          </div>
+        )
+      }
 
       <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20" style={{ right: '3rem' }}>
         {onFullscreen && (
@@ -236,18 +264,20 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
         )}
       </div>
 
-      {onToggleLayout && (
-        <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleLayout(); }}
-            disabled={isAnalyzingLayout}
-            className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-xl text-[10px] font-bold text-stone-600 border border-stone-200 hover:bg-white transition-all flex items-center gap-1.5 shadow-lg active:scale-95"
-          >
-            {isAnalyzingLayout ? <Icons.RefreshCw size={12} className="animate-spin" /> : <Icons.Compass size={12} />}
-            BLUEPRINT
-          </button>
-        </div>
-      )}
+      {
+        onToggleLayout && (
+          <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleLayout(); }}
+              disabled={isAnalyzingLayout}
+              className="px-3 py-1.5 bg-white/90 backdrop-blur rounded-xl text-[10px] font-bold text-stone-600 border border-stone-200 hover:bg-white transition-all flex items-center gap-1.5 shadow-lg active:scale-95"
+            >
+              {isAnalyzingLayout ? <Icons.RefreshCw size={12} className="animate-spin" /> : <Icons.Compass size={12} />}
+              BLUEPRINT
+            </button>
+          </div>
+        )
+      }
 
       <div
         className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg z-10 cursor-ew-resize"
@@ -259,6 +289,6 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
           <Icons.ArrowLeftRight size={16} className="text-stone-600" />
         </div>
       </div>
-    </div>
+    </div >
   );
 };

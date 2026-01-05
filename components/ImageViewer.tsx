@@ -3,12 +3,7 @@ import React, { useRef } from 'react';
 import { Icons } from './Icons';
 import { LayoutOverlay } from './LayoutOverlay';
 import { LayoutElement } from '../types';
-
-interface ImageZoom {
-  scale: number;
-  panX: number;
-  panY: number;
-}
+import { ImageZoomState, calculateNewZoom } from '../utils/zoom';
 
 interface ImageViewerProps {
   src: string;
@@ -18,8 +13,8 @@ interface ImageViewerProps {
   onToggleLayout?: () => void;
   isAnalyzingLayout?: boolean;
   onFullscreen?: () => void;
-  zoom?: ImageZoom;
-  onZoom?: (e: React.WheelEvent<HTMLDivElement>) => void;
+  zoom?: ImageZoomState;
+  onZoomChange?: (newZoom: ImageZoomState) => void;
 }
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({
@@ -31,9 +26,24 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   isAnalyzingLayout,
   onFullscreen,
   zoom = { scale: 1, panX: 0, panY: 0 },
-  onZoom
+  onZoomChange
 }) => {
   const imgRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!onZoomChange || !containerRef.current) return;
+
+    e.preventDefault();
+    const rect = containerRef.current.getBoundingClientRect();
+
+    // Mouse relative to container center
+    const mouseX = e.clientX - rect.left - rect.width / 2;
+    const mouseY = e.clientY - rect.top - rect.height / 2;
+
+    const newZoom = calculateNewZoom(zoom, mouseX, mouseY, e.deltaY);
+    onZoomChange(newZoom);
+  };
 
   const transformStyle = zoom.scale > 1
     ? {
@@ -44,8 +54,9 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
 
   return (
     <div
+      ref={containerRef}
       className={`relative group overflow-hidden rounded-xl border border-stone-700 bg-stone-950 transition-all h-full w-full ${className}`}
-      onWheel={onZoom}
+      onWheel={handleWheel}
     >
       <img
         ref={imgRef}
