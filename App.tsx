@@ -1182,6 +1182,7 @@ const App: React.FC = () => {
                 {state.isGeneratingImage ? <Icons.RefreshCw size={14} className="animate-spin" /> : <Icons.Play size={14} />}
                 生成图片
               </button>
+              {/* Quality Check Button Hidden
               <button
                 onClick={() => {
                   handleChatSendMessage('帮我质检一下');
@@ -1194,6 +1195,7 @@ const App: React.FC = () => {
                 <Icons.ScanEye size={14} />
                 质检
               </button>
+              */}
               <button
                 onClick={() => { navigator.clipboard.writeText(state.editablePrompt); showToast('已复制', 'success'); }}
                 disabled={!state.editablePrompt}

@@ -148,8 +148,8 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
               style={transformStyle}
               draggable={false}
             />
-            <div className="absolute top-3 left-3 px-3 py-1.5 bg-black/60 backdrop-blur rounded-lg">
-              <span className="text-[10px] font-bold text-white uppercase">{beforeLabel}</span>
+            <div className="absolute top-3 left-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-white/90 select-none flex items-center">
+              <span className="text-[10px] font-medium uppercase tracking-wider leading-none pt-[1px]">{beforeLabel}</span>
             </div>
           </div>
 
@@ -162,8 +162,8 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
               style={transformStyle}
               draggable={false}
             />
-            <div className="absolute top-3 right-3 px-3 py-1.5 bg-black/60 backdrop-blur rounded-lg">
-              <span className="text-[10px] font-bold text-white uppercase">{afterLabel}</span>
+            <div className="absolute top-3 right-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-white/90 select-none flex items-center">
+              <span className="text-[10px] font-medium uppercase tracking-wider leading-none pt-[1px]">{afterLabel}</span>
             </div>
           </div>
         </div>
@@ -235,12 +235,12 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
 
       {layoutData && <LayoutOverlay data={layoutData} show={true} />}
 
-      <div className="absolute top-3 left-3 px-3 py-1.5 bg-black/60 backdrop-blur rounded-lg">
-        <span className="text-[10px] font-bold text-white uppercase">{beforeLabel}</span>
+      <div className="absolute top-3 left-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-white/90 select-none flex items-center">
+        <span className="text-[10px] font-medium uppercase tracking-wider leading-none pt-[1px]">{beforeLabel}</span>
       </div>
 
-      <div className="absolute top-3 right-3 px-3 py-1.5 bg-black/60 backdrop-blur rounded-lg">
-        <span className="text-[10px] font-bold text-white uppercase">{afterLabel}</span>
+      <div className="absolute top-3 right-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-white/90 select-none flex items-center">
+        <span className="text-[10px] font-medium uppercase tracking-wider leading-none pt-[1px]">{afterLabel}</span>
       </div>
 
       {/* Zoom indicator */}

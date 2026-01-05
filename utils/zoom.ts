@@ -11,7 +11,7 @@ export const calculateNewZoom = (
     mouseY: number, // relative to image center
     deltaY: number
 ): ImageZoomState => {
-    const zoomFactor = deltaY > 0 ? 0.9 : 1.1;
+    const zoomFactor = deltaY > 0 ? 0.75 : 1.25;
     const oldScale = currentZoom.scale;
     const newScale = Math.max(1, Math.min(8, oldScale * zoomFactor)); // Max 8x for better detail
 
