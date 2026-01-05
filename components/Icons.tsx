@@ -42,7 +42,8 @@ import {
     ArrowLeft,
     Volume2,
     VolumeX,
-    ArrowLeftRight
+    ArrowLeftRight,
+    Download
 } from 'lucide-react';
 
 export const Icons = {
@@ -88,5 +89,6 @@ export const Icons = {
     ArrowLeft,
     Volume2,
     VolumeX,
-    ArrowLeftRight
+    ArrowLeftRight,
+    Download
 };

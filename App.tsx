@@ -655,6 +655,22 @@ const App: React.FC = () => {
     showToast('已删除记录', 'info');
   };
 
+  // Handler to download original image
+  const handleDownloadHD = async (index: number) => {
+    const imageBase64 = state.generatedImages[index];
+    if (!imageBase64) return;
+
+    // Create download link
+    const link = document.createElement('a');
+    link.href = `data:image/png;base64,${imageBase64}`;
+    link.download = `generated-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast('✨ 图片已下载', 'success');
+  };
+
   // Handler to regenerate a single agent
   const handleRegenerateAgent = async (role: AgentRole) => {
     if (!state.image || state.isProcessing) return;
@@ -757,8 +773,7 @@ const App: React.FC = () => {
         const streamingMsg = createAssistantMessage('正在修改提示词...', true);
         setChatMessages(prev => [...prev, streamingMsg]);
 
-        const refImg = state.useReferenceImage ? state.image : null;
-        const newPrompt = await executeRefineSkill(state.editablePrompt, message, refImg, state.mimeType);
+        const newPrompt = await executeRefineSkill(state.editablePrompt, message, null, state.mimeType);
 
         setState(prev => ({ ...prev, editablePrompt: newPrompt, promptCache: { CN: '', EN: '' } }));
         pushPromptHistory(newPrompt, '对话修订');
@@ -1285,6 +1300,7 @@ const App: React.FC = () => {
                       }
                     }}
                     onDelete={() => handleDeleteHistoryItem(index)}
+                    onDownloadHD={() => handleDownloadHD(index)}
                   />
                 ))}
               </div>

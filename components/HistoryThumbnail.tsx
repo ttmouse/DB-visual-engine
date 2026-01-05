@@ -7,6 +7,7 @@ interface HistoryThumbnailProps {
   isActive: boolean;
   onClick: () => void;
   onDelete?: () => void;
+  onDownloadHD?: () => void;
 }
 
 export const HistoryThumbnail: React.FC<HistoryThumbnailProps> = ({
@@ -15,10 +16,16 @@ export const HistoryThumbnail: React.FC<HistoryThumbnailProps> = ({
   isActive,
   onClick,
   onDelete,
+  onDownloadHD,
 }) => {
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDelete?.();
+  };
+
+  const handleDownloadHD = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDownloadHD?.();
   };
 
   return (
@@ -51,6 +58,17 @@ export const HistoryThumbnail: React.FC<HistoryThumbnailProps> = ({
           title="删除此记录"
         >
           <Icons.X size={12} className="text-white" />
+        </button>
+      )}
+
+      {/* Download button - appears on hover (bottom right) */}
+      {onDownloadHD && (
+        <button
+          onClick={handleDownloadHD}
+          className="absolute bottom-1 right-1 p-1.5 bg-black/60 hover:bg-emerald-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          title="下载原图"
+        >
+          <Icons.Download size={12} className="text-white" />
         </button>
       )}
     </div>
