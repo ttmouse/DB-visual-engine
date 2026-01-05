@@ -22,9 +22,9 @@ export const PipelineProgressView: React.FC<PipelineProgressViewProps> = ({
   };
 
   return (
-    <div className="absolute inset-0 bg-stone-900 flex flex-col animate-in fade-in duration-300 z-10">
+    <div className="absolute inset-0 bg-stone-900/98 backdrop-blur-md flex flex-col animate-in fade-in duration-300 z-50">
       {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-stone-700 bg-stone-800">
+      <div className="flex-shrink-0 px-6 py-4 border-b border-stone-800 bg-stone-900 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-serif font-bold text-stone-200 flex items-center gap-2">
@@ -39,7 +39,7 @@ export const PipelineProgressView: React.FC<PipelineProgressViewProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={onHide}
-              className="px-3 py-1.5 text-xs font-bold text-stone-400 hover:bg-stone-700 rounded-lg transition-all flex items-center gap-1"
+              className="px-3 py-1.5 text-xs font-bold text-stone-400 hover:bg-stone-800 rounded-lg transition-all flex items-center gap-1"
             >
               <Icons.ArrowLeft size={14} />
               返回编辑器
@@ -71,7 +71,7 @@ export const PipelineProgressView: React.FC<PipelineProgressViewProps> = ({
               )}
             </div>
           </div>
-          <div className="relative h-3 bg-stone-700 rounded-full overflow-hidden">
+          <div className="relative h-3 bg-stone-800 rounded-full overflow-hidden border border-stone-700">
             <div
               className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500 ease-out"
               style={{ width: `${progress.totalProgress}%` }}
@@ -81,10 +81,17 @@ export const PipelineProgressView: React.FC<PipelineProgressViewProps> = ({
       </div>
 
       {/* Steps List */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-        {progress.steps.map((step, index) => (
-          <PipelineStepCard key={step.role} step={step} index={index} />
-        ))}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-stone-900/50">
+        {progress.steps.length > 0 ? (
+          progress.steps.map((step, index) => (
+            <PipelineStepCard key={step.role} step={step} index={index} />
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center h-48 text-stone-600 gap-3">
+            <Icons.RefreshCw size={24} className="animate-spin text-orange-500" />
+            <p className="text-sm font-medium">正在初始化分析流程...</p>
+          </div>
+        )}
       </div>
 
       {/* Completion Message */}

@@ -185,6 +185,9 @@ const App: React.FC = () => {
   // Reference Image Drag Dnd State
   const [isDraggingReference, setIsDraggingReference] = useState(false);
 
+  // New Image Drag State for left panel
+  const [isDraggingNewImage, setIsDraggingNewImage] = useState(false);
+
   const isPipelineRunning = useRef(false);
 
   // 流水线进度管理
@@ -410,8 +413,8 @@ const App: React.FC = () => {
     setState(prev => ({
       ...INITIAL_STATE,
       history: prev.history,
-      generatedImages: prev.generatedImages,
-      selectedHistoryIndex: prev.selectedHistoryIndex,
+      generatedImages: prev.generatedImages, // Keep history images
+      selectedHistoryIndex: -1, // Reset selection to show source image by default
       image: base64Data,
       mimeType: mimeType,
       videoAnalysisDuration: duration || null,
@@ -1660,12 +1663,84 @@ const App: React.FC = () => {
             </div>
           </PanelHeader>
 
-          <div className="flex-1 min-h-0 relative">
+          <div
+            className={`flex-1 min-h-0 relative ${isDraggingNewImage ? 'ring-2 ring-orange-500 ring-inset' : ''}`}
+            onDragOver={(e) => {
+              if (displayImage) {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingNewImage(true);
+              }
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDraggingNewImage(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsDraggingNewImage(false);
+
+              if (!displayImage) return;
+
+              const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
+              if (files.length === 0) return;
+
+              const file = files[0];
+              if (file.size > 20 * 1024 * 1024) {
+                showToast('文件过大 (最大 20MB)', 'error');
+                return;
+              }
+
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                const base64String = ev.target?.result as string;
+                const cleanBase64 = base64String.split(',')[1];
+                const mimeType = file.type;
+
+                // Calculate aspect ratio
+                if (file.type.startsWith('image/')) {
+                  const img = new Image();
+                  img.onload = () => {
+                    const ratio = img.naturalWidth / img.naturalHeight;
+                    const ratios = [
+                      { id: "1:1", value: 1.0 },
+                      { id: "3:4", value: 0.75 },
+                      { id: "4:3", value: 1.333 },
+                      { id: "9:16", value: 0.5625 },
+                      { id: "16:9", value: 1.777 }
+                    ];
+                    const closest = ratios.reduce((prev, curr) =>
+                      Math.abs(curr.value - ratio) < Math.abs(prev.value - ratio) ? curr : prev
+                    );
+                    handleFileSelected(cleanBase64, closest.id, mimeType);
+                    showToast('已加载新图片', 'success');
+                  };
+                  img.src = base64String;
+                } else {
+                  handleFileSelected(cleanBase64, '16:9', mimeType);
+                  showToast('已加载新视频', 'success');
+                }
+              };
+              reader.readAsDataURL(file);
+            }}
+          >
+            {/* Drag overlay */}
+            {isDraggingNewImage && displayImage && (
+              <div className="absolute inset-0 z-50 bg-orange-500/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+                <div className="bg-orange-500 text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-xl">
+                  <Icons.Upload size={18} />
+                  拖放以开始新的逆向
+                </div>
+              </div>
+            )}
+
             {!displayImage ? (
               <ImageUploader onImageSelected={handleFileSelected} disabled={state.isProcessing} />
             ) : (
               <div className="w-full h-full flex flex-col animate-in fade-in duration-500">
-                {state.generatedImages.length > 0 ? (
+                {state.generatedImages.length > 0 && state.selectedHistoryIndex !== -1 ? (
                   isComparisonMode ? (
                     <ImageComparisonSlider
                       beforeImage={displayImage}
