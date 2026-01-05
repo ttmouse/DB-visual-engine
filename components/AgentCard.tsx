@@ -21,10 +21,10 @@ export const AgentCard: React.FC<AgentCardProps> = ({ config, result, isActive, 
   return (
     <div className="flex flex-col h-full animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-stone-100 flex-shrink-0">
+      <div className="flex items-center justify-between pb-4 border-b border-stone-800 flex-shrink-0">
         <div>
-          <h2 className="text-base font-serif font-bold text-stone-800">{config.name}</h2>
-          <p className="text-[10px] text-stone-400 font-medium tracking-wide uppercase mt-0.5">{config.description}</p>
+          <h2 className="text-base font-serif font-bold text-stone-200">{config.name}</h2>
+          <p className="text-[10px] text-stone-500 font-medium tracking-wide uppercase mt-0.5">{config.description}</p>
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -35,7 +35,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({ config, result, isActive, 
             </div>
           )}
           {isActive && !isComplete && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-stone-100 text-stone-500 text-[10px] font-bold">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-stone-800 text-stone-400 text-[10px] font-bold">
               <Icons.RefreshCw className="animate-spin" size={12} />
               分析中
             </div>
@@ -49,7 +49,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({ config, result, isActive, 
           <textarea
             value={content}
             onChange={(e) => onContentChange?.(e.target.value)}
-            className="w-full h-full bg-stone-50 rounded-xl border border-stone-200 p-4 text-[12px] font-mono leading-relaxed focus:ring-2 focus:ring-black/10 outline-none resize-none overflow-y-auto custom-scrollbar"
+            className="w-full h-full bg-stone-950 rounded-xl border border-stone-800 p-4 text-[12px] font-mono leading-relaxed focus:ring-2 focus:ring-stone-700 outline-none resize-none overflow-y-auto custom-scrollbar text-stone-300 placeholder:text-stone-600"
             placeholder="等待分析结果..."
             spellCheck={false}
           />
@@ -63,8 +63,21 @@ export const AgentCard: React.FC<AgentCardProps> = ({ config, result, isActive, 
               </div>
             ) : (
               <>
-                <Icons.Clock size={32} strokeWidth={1} />
-                <p className="text-sm italic">等待流水线信号...</p>
+                <Icons.Clock size={32} strokeWidth={1} className="text-stone-700" />
+                {onRegenerate ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-xs text-stone-500 font-medium">准备就绪</p>
+                    <button
+                      onClick={onRegenerate}
+                      className="px-4 py-2 bg-stone-100 hover:bg-white text-stone-900 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95"
+                    >
+                      <Icons.Play size={14} className="fill-stone-900" />
+                      运行分析
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm italic text-stone-600">等待流水线信号...</p>
+                )}
               </>
             )}
           </div>
@@ -73,14 +86,14 @@ export const AgentCard: React.FC<AgentCardProps> = ({ config, result, isActive, 
 
       {/* Bottom Actions */}
       {content && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-stone-100 bg-white z-10">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-stone-800 bg-stone-900 z-10">
           <div className="flex items-center gap-2">
             {/* Regenerate Button */}
             {onRegenerate && (
               <button
                 onClick={onRegenerate}
                 disabled={isActive}
-                className="flex-1 py-2 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-900 transition-all relative z-10"
+                className="flex-1 py-2 bg-stone-100 text-stone-900 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-white transition-all relative z-10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
               >
                 {isActive ? <Icons.RefreshCw size={14} className="animate-spin" /> : <Icons.RefreshCw size={14} />}
                 重新生成
@@ -91,7 +104,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({ config, result, isActive, 
             <button
               onClick={onCopy || (() => { navigator.clipboard.writeText(content); })}
               disabled={isActive}
-              className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0 relative z-10"
+              className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-stone-400 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0 relative z-10"
               title="复制内容"
             >
               <Icons.CheckSquare size={14} />
