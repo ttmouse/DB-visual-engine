@@ -48,6 +48,7 @@ const INITIAL_STATE: AppState = {
   editablePrompt: '', promptHistory: [], currentPromptIndex: 0, isRefiningPrompt: false,
   useReferenceImage: false, isTemplatizing: false, detectedAspectRatio: "1:1",
   videoAnalysisDuration: null, isRefining: false, history: [], isHistoryOpen: false,
+  isVersionDropdownOpen: false,
   layoutData: null, isAnalyzingLayout: false,
   suggestions: [], selectedSuggestionIndices: [],
   promptCache: { CN: '', EN: '' },
@@ -1052,21 +1053,39 @@ const App: React.FC = () => {
                   快速逆向
                 </button>
               </div>
-              {/* Version Selector */}
-              <div className="flex items-center gap-2">
-                <select
-                  className="text-xs bg-stone-800 border-0 rounded-lg px-2 py-1.5 text-stone-300 font-bold focus:ring-2 focus:ring-black/10 outline-none cursor-pointer hover:bg-stone-700 transition-colors"
-                  value={promptManager.getActiveVersionId(AgentRole.SYNTHESIZER) || ''}
-                  onChange={(e) => {
-                    promptManager.setActiveVersionId(AgentRole.SYNTHESIZER, e.target.value);
-                    // Force re-render
-                    setState(prev => ({ ...prev }));
-                  }}
+              {/* Version Selector - Custom Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setState(prev => ({ ...prev, isVersionDropdownOpen: !prev.isVersionDropdownOpen }))}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-stone-800 hover:bg-stone-700 rounded-lg text-xs font-bold text-stone-300 transition-colors"
                 >
-                  {promptManager.getVersions(AgentRole.SYNTHESIZER).map(v => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
+                  <span>{promptManager.getVersions(AgentRole.SYNTHESIZER).find(v => v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER))?.name || '选择版本'}</span>
+                  <Icons.ChevronDown size={12} className={`transition-transform ${state.isVersionDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {state.isVersionDropdownOpen && (
+                  <>
+                    {/* Backdrop to close dropdown */}
+                    <div className="fixed inset-0 z-40" onClick={() => setState(prev => ({ ...prev, isVersionDropdownOpen: false }))} />
+                    <div className="absolute top-full left-0 mt-1 w-48 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                      {promptManager.getVersions(AgentRole.SYNTHESIZER).map(v => (
+                        <div
+                          key={v.id}
+                          onClick={() => {
+                            promptManager.setActiveVersionId(AgentRole.SYNTHESIZER, v.id);
+                            setState(prev => ({ ...prev, isVersionDropdownOpen: false }));
+                          }}
+                          className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER)
+                            ? 'bg-stone-700 text-orange-400'
+                            : 'text-stone-300'
+                            }`}
+                        >
+                          {v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER) && <Icons.Check size={12} />}
+                          <span>{v.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 {state.promptHistory.length > 0 && (
@@ -1290,96 +1309,160 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            {/* AI Input Row */}
-            <div className="relative bg-stone-800 rounded-xl p-3 border border-stone-700">
-              <textarea
-                ref={(el) => {
-                  if (el) {
-                    el.style.height = 'auto';
-                    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
-                    el.style.overflowY = el.scrollHeight > 200 ? 'auto' : 'hidden';
-                  }
-                }}
-                value={aiInput}
-                onChange={(e) => {
-                  setAiInput(e.target.value);
-                  // Auto-resize
-                  const target = e.target;
-                  target.style.height = 'auto';
-                  const newHeight = Math.min(target.scrollHeight, 200);
-                  target.style.height = newHeight + 'px';
-                  target.style.overflowY = target.scrollHeight > 200 ? 'auto' : 'hidden';
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && aiInput.trim()) {
-                    e.preventDefault();
-                    handleChatSendMessage(aiInput.trim());
-                    setAiInput('');
-                    setIsChatDrawerOpen(true);
-                  }
-                }}
-                placeholder={isAnalyzing ? "正在分析差异..." : "输入 AI 指令..."}
-                className={`w-full bg-transparent border-none text-sm outline-none text-stone-200 placeholder:text-stone-500 resize-none min-h-[24px] max-h-[200px] leading-relaxed pr-24 ${isAnalyzing ? 'placeholder:animate-pulse' : ''}`}
-                disabled={isChatProcessing || isAnalyzing}
-                rows={1}
-              />
-              {/* Buttons fixed at bottom-right */}
-              <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                {isAnalyzing ? (
-                  <button
-                    onClick={() => {
-                      setIsAnalyzing(false);
-                      setAiInput('');
-                    }}
-                    className="px-2 py-1 bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
-                    title="取消分析"
-                  >
-                    <Icons.X size={12} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={async () => {
-                      if (!state.image || !state.generatedImage) return;
-                      setIsAnalyzing(true);
-                      setAiInput('');
-                      try {
-                        const suggestion = await executeSmartAnalysis(
-                          state.image,
-                          state.generatedImage,
-                          state.editablePrompt
-                        );
-                        setAiInput(prev => prev === '' ? suggestion : prev);
-                      } catch (e) {
-                        setAiInput('分析失败，请重试');
-                      } finally {
-                        setIsAnalyzing(false);
-                      }
-                    }}
-                    disabled={!state.image || !state.generatedImage || isChatProcessing}
-                    className="p-1.5 bg-violet-900/30 hover:bg-violet-900/50 text-violet-400 rounded-lg disabled:opacity-40 transition-all"
-                    title="智能分析"
-                  >
-                    <Icons.Sparkles size={14} />
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    if (aiInput.trim()) {
+            {/* AI Input Area - Two Row Layout */}
+            <div className="bg-stone-800 rounded-xl border border-stone-700 overflow-hidden">
+              {/* Top Row: Text Input */}
+              <div className="px-3 pt-2.5 pb-0">
+                <textarea
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = 'auto';
+                      el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+                      el.style.overflowY = el.scrollHeight > 100 ? 'auto' : 'hidden';
+                    }
+                  }}
+                  value={aiInput}
+                  onChange={(e) => {
+                    setAiInput(e.target.value);
+                    const target = e.target;
+                    target.style.height = 'auto';
+                    const newHeight = Math.min(target.scrollHeight, 100);
+                    target.style.height = newHeight + 'px';
+                    target.style.overflowY = target.scrollHeight > 100 ? 'auto' : 'hidden';
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && aiInput.trim()) {
+                      e.preventDefault();
                       handleChatSendMessage(aiInput.trim());
                       setAiInput('');
                       setIsChatDrawerOpen(true);
                     }
                   }}
-                  disabled={!aiInput.trim() || isChatProcessing}
-                  className="p-1.5 bg-stone-700 text-white rounded-lg disabled:opacity-40 transition-all hover:bg-stone-600"
-                  title="发送"
-                >
-                  {isChatProcessing ? (
-                    <Icons.RefreshCw size={14} className="animate-spin" />
+                  placeholder={isAnalyzing ? "正在分析差异..." : "输入 AI 指令..."}
+                  className={`w-full bg-transparent border-none text-sm outline-none text-stone-200 placeholder:text-stone-500 resize-none min-h-[20px] max-h-[100px] leading-snug ${isAnalyzing ? 'placeholder:animate-pulse' : ''}`}
+                  disabled={isChatProcessing || isAnalyzing}
+                  rows={1}
+                />
+              </div>
+
+              {/* Bottom Row: Buttons & Model Info */}
+              <div className="px-2 py-1.5 flex items-center justify-between">
+                {/* Left: Upload + Model Info */}
+                <div className="flex items-center gap-3">
+                  {/* Upload Button */}
+                  <label className="p-1.5 rounded-lg hover:bg-stone-700 cursor-pointer transition-colors text-stone-500 hover:text-stone-300" title="上传图片">
+                    <Icons.Plus size={16} />
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (files && files.length > 0) {
+                          Array.from(files).forEach(file => {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const result = ev.target?.result as string;
+                              const mimeType = file.type || 'image/png';
+                              const img = new Image();
+                              img.onload = () => {
+                                const ratio = img.width / img.height;
+                                const ratios = [
+                                  { id: "1:1", value: 1.0 },
+                                  { id: "3:4", value: 0.75 },
+                                  { id: "4:3", value: 1.333 },
+                                  { id: "9:16", value: 0.5625 },
+                                  { id: "16:9", value: 1.777 }
+                                ];
+                                const closest = ratios.reduce((prev, curr) =>
+                                  Math.abs(curr.value - ratio) < Math.abs(prev.value - ratio) ? curr : prev
+                                );
+                                const newRef: ReferenceImage = {
+                                  id: `ref-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                                  url: result,
+                                  name: file.name,
+                                  mimeType: mimeType,
+                                  aspectRatio: closest.id
+                                };
+                                setState(prev => ({
+                                  ...prev,
+                                  referenceImages: [...prev.referenceImages, newRef]
+                                }));
+                              };
+                              img.src = result;
+                            };
+                            reader.readAsDataURL(file);
+                          });
+                          showToast(`已添加 ${files.length} 张参考图`, 'success');
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+
+                  {/* Model Info */}
+                  <span className="text-[10px] text-stone-500 font-medium">Gemini 2.0 Flash</span>
+                </div>
+
+                {/* Right: Action Buttons */}
+                <div className="flex items-center gap-2">
+                  {isAnalyzing ? (
+                    <button
+                      onClick={() => {
+                        setIsAnalyzing(false);
+                        setAiInput('');
+                      }}
+                      className="px-2 py-1 bg-rose-900/30 hover:bg-rose-900/50 text-rose-400 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                      title="取消分析"
+                    >
+                      <Icons.X size={12} />
+                    </button>
                   ) : (
-                    <Icons.ArrowUp size={14} />
+                    <button
+                      onClick={async () => {
+                        if (!state.image || !state.generatedImage) return;
+                        setIsAnalyzing(true);
+                        setAiInput('');
+                        try {
+                          const suggestion = await executeSmartAnalysis(
+                            state.image,
+                            state.generatedImage,
+                            state.editablePrompt
+                          );
+                          setAiInput(prev => prev === '' ? suggestion : prev);
+                        } catch (e) {
+                          setAiInput('分析失败，请重试');
+                        } finally {
+                          setIsAnalyzing(false);
+                        }
+                      }}
+                      disabled={!state.image || !state.generatedImage || isChatProcessing}
+                      className="p-1.5 bg-violet-900/30 hover:bg-violet-900/50 text-violet-400 rounded-lg disabled:opacity-40 transition-all"
+                      title="智能分析"
+                    >
+                      <Icons.Sparkles size={14} />
+                    </button>
                   )}
-                </button>
+                  <button
+                    onClick={() => {
+                      if (aiInput.trim()) {
+                        handleChatSendMessage(aiInput.trim());
+                        setAiInput('');
+                        setIsChatDrawerOpen(true);
+                      }
+                    }}
+                    disabled={!aiInput.trim() || isChatProcessing}
+                    className="p-1.5 bg-stone-700 text-white rounded-lg disabled:opacity-40 transition-all hover:bg-stone-600"
+                    title="发送"
+                  >
+                    {isChatProcessing ? (
+                      <Icons.RefreshCw size={14} className="animate-spin" />
+                    ) : (
+                      <Icons.ArrowUp size={14} />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1562,7 +1645,6 @@ const App: React.FC = () => {
                       afterImage={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
                       className="w-full h-full border-0 rounded-none bg-stone-950/50"
                       layoutData={state.layoutData}
-                      onToggleLayout={handleAnalyzeLayout}
                       isAnalyzingLayout={state.isAnalyzingLayout}
                       onFullscreen={() => { setFullscreenImg(displayImage); setIsFullscreenComparison(true); }}
                       zoom={imageZoom}
@@ -1574,7 +1656,6 @@ const App: React.FC = () => {
                       alt="Generated Result"
                       className="w-full h-full border-0 rounded-none bg-stone-950/50"
                       layoutData={state.layoutData}
-                      onToggleLayout={handleAnalyzeLayout}
                       isAnalyzingLayout={state.isAnalyzingLayout}
                       onFullscreen={() => setFullscreenImg(`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`)}
                       zoom={imageZoom}
@@ -1587,7 +1668,6 @@ const App: React.FC = () => {
                     alt="Source"
                     className="w-full h-full border-0 rounded-none bg-stone-950/50"
                     layoutData={state.layoutData}
-                    onToggleLayout={handleAnalyzeLayout}
                     isAnalyzingLayout={state.isAnalyzingLayout}
                     onFullscreen={() => setFullscreenImg(displayImage)}
                     zoom={imageZoom}

@@ -87,6 +87,7 @@ export interface AppState {
   generatedImages: string[];
 
   isHistoryOpen: boolean;
+  isVersionDropdownOpen: boolean;
 
   // Chat/Suggestions
   suggestions: string[];
