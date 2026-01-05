@@ -322,9 +322,16 @@ const App: React.FC = () => {
     }));
   };
 
-  // Keyboard Shortcuts for History
+  // Keyboard Shortcuts for History and Fullscreen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC to close fullscreen
+      if (e.key === 'Escape' && fullscreenImg) {
+        setFullscreenImg(null);
+        setIsFullscreenComparison(false);
+        return;
+      }
+
       if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
       if (state.generatedImages.length === 0) return;
@@ -333,17 +340,35 @@ const App: React.FC = () => {
         const newIndex = Math.max(0, state.selectedHistoryIndex - 1);
         if (newIndex !== state.selectedHistoryIndex) {
           loadHistoryItem(newIndex);
+          // Update fullscreen image if in fullscreen mode
+          if (fullscreenImg && state.generatedImages[newIndex]) {
+            if (isFullscreenComparison) {
+              // For comparison mode, keep the current mode but update the index
+              // The image will be updated via selectedHistoryIndex
+            } else {
+              setFullscreenImg(`data:image/png;base64,${state.generatedImages[newIndex]}`);
+            }
+          }
         }
       } else if (e.key === 'ArrowRight') {
         const newIndex = Math.min(state.generatedImages.length - 1, state.selectedHistoryIndex + 1);
         if (newIndex !== state.selectedHistoryIndex) {
           loadHistoryItem(newIndex);
+          // Update fullscreen image if in fullscreen mode
+          if (fullscreenImg && state.generatedImages[newIndex]) {
+            if (isFullscreenComparison) {
+              // For comparison mode, keep the current mode but update the index
+              // The image will be updated via selectedHistoryIndex
+            } else {
+              setFullscreenImg(`data:image/png;base64,${state.generatedImages[newIndex]}`);
+            }
+          }
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.generatedImages.length, state.selectedHistoryIndex, state.history]);
+  }, [state.generatedImages.length, state.selectedHistoryIndex, state.history, fullscreenImg, isFullscreenComparison]);
 
 
   // Keyboard shortcuts
@@ -1534,13 +1559,14 @@ const App: React.FC = () => {
             <Icons.X size={32} />
           </button>
           {isFullscreenComparison ? (
-            <div className="w-full h-full flex items-center justify-center gap-8 p-20" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full h-full flex items-center justify-center gap-8 p-20">
               <div className="flex-1 h-full flex flex-col items-center justify-center">
                 <div className="text-white/50 text-sm mb-4 font-medium">ORIGINAL</div>
                 <img
                   src={displayImage}
                   alt="Original"
-                  className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg"
+                  className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg cursor-default"
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
               <div className="flex-1 h-full flex flex-col items-center justify-center">
@@ -1548,16 +1574,17 @@ const App: React.FC = () => {
                 <img
                   src={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
                   alt="Generated"
-                  className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg"
+                  className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg cursor-default"
+                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
             </div>
           ) : (
-            <div className="w-full h-full flex items-center justify-center p-10" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full h-full flex items-center justify-center p-10">
               <img
                 src={fullscreenImg}
                 alt="Fullscreen View"
-                className="max-w-[95%] max-h-[95%] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg"
+                className="max-w-[95%] max-h-[95%] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg cursor-default"
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
