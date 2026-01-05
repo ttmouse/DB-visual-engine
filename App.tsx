@@ -58,7 +58,15 @@ const App: React.FC = () => {
   const [refinementInput, setRefinementInput] = useState('');
   const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
   const [isFullscreenComparison, setIsFullscreenComparison] = useState(false);
-  const [isComparisonMode, setIsComparisonMode] = useState(true);
+  const [isComparisonMode, setIsComparisonMode] = useState(() => {
+    const saved = localStorage.getItem('unimage_comparison_mode');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+
+  // Save comparison mode preference
+  useEffect(() => {
+    localStorage.setItem('unimage_comparison_mode', JSON.stringify(isComparisonMode));
+  }, [isComparisonMode]);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isPromptLabOpen, setIsPromptLabOpen] = useState(false);
@@ -118,6 +126,54 @@ const App: React.FC = () => {
     state.promptCache,
     state.selectedHistoryIndex
   ]);
+
+  // Helper to load history item
+  const loadHistoryItem = (index: number) => {
+    // 1. Check if index is valid
+    if (index < 0 || index >= state.history.length) return;
+
+    const historyItem = state.history[index];
+    if (!historyItem) return;
+
+    // 2. Set selected index
+    setSelectedHistoryIndex(index);
+
+    // 3. Restore state
+    setDisplayImage(`data:${historyItem.mimeType || 'image/png'};base64,${historyItem.originalImage}`);
+    setState(prev => ({
+      ...prev,
+      editablePrompt: historyItem.prompt,
+      promptCache: { ...prev.promptCache, CN: historyItem.prompt },
+      image: historyItem.originalImage,
+      mimeType: historyItem.mimeType || 'image/png',
+      detectedAspectRatio: historyItem.detectedAspectRatio || '1:1',
+      generatedImage: historyItem.generatedImage
+    }));
+  };
+
+  // Keyboard Shortcuts for History
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+      if (state.generatedImages.length === 0) return;
+
+      if (e.key === 'ArrowLeft') {
+        const newIndex = Math.max(0, state.selectedHistoryIndex - 1);
+        if (newIndex !== state.selectedHistoryIndex) {
+          loadHistoryItem(newIndex);
+        }
+      } else if (e.key === 'ArrowRight') {
+        const newIndex = Math.min(state.generatedImages.length - 1, state.selectedHistoryIndex + 1);
+        if (newIndex !== state.selectedHistoryIndex) {
+          loadHistoryItem(newIndex);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.generatedImages.length, state.selectedHistoryIndex, state.history]);
+
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -843,26 +899,26 @@ const App: React.FC = () => {
   const renderTabContent = () => {
     if (activeTab === 'STUDIO') {
       return (
-        <div className="flex flex-col h-full bg-white relative">
+        <div className="flex flex-col h-full bg-stone-900 relative">
           {/* Header */}
-          <div className="px-6 pt-5 pb-3 border-b border-stone-100 flex-shrink-0">
+          <div className="px-6 pt-5 pb-3 border-b border-stone-800 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-stone-800 text-base font-serif">Prompt Studio</h3>
-                <p className="text-[10px] text-stone-400 font-medium uppercase mt-0.5">提示词编辑器</p>
+                <h3 className="font-bold text-stone-300 text-base font-serif">Prompt Studio</h3>
+                <p className="text-[10px] text-stone-500 font-medium uppercase mt-0.5">提示词编辑器</p>
               </div>
 
               {/* 模式切换器 */}
-              <div className="flex items-center gap-1 bg-stone-100 rounded-lg p-1">
+              <div className="flex items-center gap-1 bg-stone-800 rounded-lg p-1">
                 <button
                   onClick={() => setReverseMode('full')}
-                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'full' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'full' ? 'bg-stone-600 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
                 >
                   完整分析
                 </button>
                 <button
                   onClick={() => setReverseMode('quick')}
-                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'quick' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}
+                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'quick' ? 'bg-stone-600 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
                 >
                   快速逆向
                 </button>
@@ -870,7 +926,7 @@ const App: React.FC = () => {
               {/* Version Selector */}
               <div className="flex items-center gap-2">
                 <select
-                  className="text-xs bg-stone-100 border-0 rounded-lg px-2 py-1.5 text-stone-600 font-bold focus:ring-2 focus:ring-black/10 outline-none cursor-pointer"
+                  className="text-xs bg-stone-800 border-0 rounded-lg px-2 py-1.5 text-stone-300 font-bold focus:ring-2 focus:ring-black/10 outline-none cursor-pointer hover:bg-stone-700 transition-colors"
                   value={promptManager.getActiveVersionId(AgentRole.SYNTHESIZER) || ''}
                   onChange={(e) => {
                     promptManager.setActiveVersionId(AgentRole.SYNTHESIZER, e.target.value);
@@ -888,13 +944,13 @@ const App: React.FC = () => {
                   <div className="relative">
                     <button
                       onClick={() => setIsHistoryDropdownOpen(!isHistoryDropdownOpen)}
-                      className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg text-[9px] font-bold"
+                      className="flex items-center gap-1 px-2 py-1 bg-amber-900/20 text-amber-500 hover:bg-amber-900/40 rounded-lg text-[9px] font-bold transition-colors"
                     >
                       <Icons.History size={10} />
                       {state.promptHistory.length}
                     </button>
                     {isHistoryDropdownOpen && (
-                      <div className="absolute top-full right-0 mt-1 w-64 bg-white border border-stone-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                      <div className="absolute top-full right-0 mt-1 w-64 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
                         {state.promptHistory.map((entry, idx) => {
                           const lines = entry.split('\n');
                           const header = lines[0];
@@ -906,9 +962,9 @@ const App: React.FC = () => {
                                 setState(prev => ({ ...prev, editablePrompt: content }));
                                 setIsHistoryDropdownOpen(false);
                               }}
-                              className="px-3 py-2 hover:bg-stone-50 cursor-pointer text-[10px] border-b border-stone-50 last:border-b-0"
+                              className="px-3 py-2 hover:bg-stone-700 cursor-pointer text-[10px] border-b border-stone-700 last:border-b-0"
                             >
-                              <span className="font-bold text-amber-600">{header}</span>
+                              <span className="font-bold text-amber-500">{header}</span>
                             </div>
                           );
                         })}
@@ -916,7 +972,7 @@ const App: React.FC = () => {
                     )}
                   </div>
                 )}
-                <button onClick={handleToggleLanguage} className="p-1.5 bg-stone-100 hover:bg-stone-200 text-stone-500 rounded-lg" title="翻译">
+                <button onClick={handleToggleLanguage} className="p-1.5 bg-stone-800 hover:bg-stone-700 text-stone-400 rounded-lg transition-colors" title="翻译">
                   <Icons.Languages size={12} />
                 </button>
               </div>
@@ -928,18 +984,18 @@ const App: React.FC = () => {
             <textarea
               value={state.editablePrompt}
               onChange={(e) => setState(prev => ({ ...prev, editablePrompt: e.target.value }))}
-              className="flex-1 w-full bg-stone-50 rounded-xl border border-stone-200 p-4 text-[12px] font-mono leading-relaxed focus:ring-2 focus:ring-black/10 outline-none resize-none overflow-y-auto custom-scrollbar"
+              className="flex-1 w-full bg-stone-950 rounded-xl border border-stone-800 p-4 text-[12px] font-mono leading-relaxed focus:ring-2 focus:ring-stone-600 outline-none resize-none overflow-y-auto custom-scrollbar text-stone-200 placeholder:text-stone-600"
               placeholder="正在等待提示词生成..."
               spellCheck={false}
             />
           </div>
 
           {/* Bottom Actions */}
-          <div className="p-4 border-t border-stone-100 flex-shrink-0">
+          <div className="p-4 border-t border-stone-800 flex-shrink-0">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setState(prev => ({ ...prev, useReferenceImage: !prev.useReferenceImage }))}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-xs font-bold flex-shrink-0 ${state.useReferenceImage ? 'bg-orange-100 text-orange-600' : 'bg-stone-100 text-stone-400'}`}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-xs font-bold flex-shrink-0 ${state.useReferenceImage ? 'bg-orange-900/30 text-orange-400' : 'bg-stone-800 text-stone-500 hover:text-stone-300'}`}
                 title="图生图参考"
               >
                 <Icons.Image size={14} />
@@ -971,7 +1027,7 @@ const App: React.FC = () => {
                   }
                 }}
                 disabled={!state.image || state.isProcessing}
-                className="flex-1 py-2 bg-stone-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-900 transition-all"
+                className="flex-1 py-2 bg-stone-800 text-stone-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-700 transition-all border border-stone-700"
                 title={reverseMode === 'quick' ? '快速单步逆向' : '完整4步分析'}
               >
                 <Icons.Sparkles size={14} />
@@ -980,7 +1036,7 @@ const App: React.FC = () => {
               <button
                 onClick={() => handleGenerateImage()}
                 disabled={state.isGeneratingImage || !state.editablePrompt}
-                className="flex-1 py-2 bg-black text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-800 transition-all"
+                className="flex-1 py-2 bg-stone-100 text-black rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)]"
               >
                 {state.isGeneratingImage ? <Icons.RefreshCw size={14} className="animate-spin" /> : <Icons.Play size={14} />}
                 生成图片
@@ -988,7 +1044,7 @@ const App: React.FC = () => {
               <button
                 onClick={() => { navigator.clipboard.writeText(state.editablePrompt); showToast('已复制', 'success'); }}
                 disabled={!state.editablePrompt}
-                className="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0"
+                className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0"
                 title="复制提示词"
               >
                 <Icons.CheckSquare size={14} />
@@ -1043,7 +1099,7 @@ const App: React.FC = () => {
   if (showLanding) return <LandingPage onEnterApp={() => setShowLanding(false)} hasKey={hasKey} onSelectKey={handleSelectKey} />;
 
   return (
-    <div className="min-h-screen bg-stone-50 text-stone-900 font-sans selection:bg-stone-200 overflow-hidden">
+    <div className="min-h-screen bg-black text-stone-200 font-sans selection:bg-stone-700 overflow-hidden">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <DocumentationModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
@@ -1094,27 +1150,27 @@ const App: React.FC = () => {
       {state.isHistoryOpen && (
         <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setState(prev => ({ ...prev, isHistoryOpen: false }))}>
           <div
-            className="absolute right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"
+            className="absolute right-0 top-0 bottom-0 w-[400px] bg-stone-900 shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col border-l border-stone-800"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="p-6 border-b border-stone-100 flex items-center justify-between flex-shrink-0">
+            <div className="p-6 border-b border-stone-800 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-stone-100 rounded-xl"><Icons.History size={18} className="text-stone-600" /></div>
-                <h2 className="text-lg font-serif font-bold text-stone-800">历史记录</h2>
+                <div className="p-2 bg-stone-800 rounded-xl"><Icons.History size={18} className="text-stone-400" /></div>
+                <h2 className="text-lg font-serif font-bold text-stone-200">历史记录</h2>
               </div>
               <button
                 onClick={() => setState(prev => ({ ...prev, isHistoryOpen: false }))}
-                className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-stone-800 rounded-lg transition-colors"
               >
-                <Icons.X size={20} className="text-stone-400" />
+                <Icons.X size={20} className="text-stone-500" />
               </button>
             </div>
 
             {/* History List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
               {state.history.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-stone-300 space-y-3">
+                <div className="flex flex-col items-center justify-center h-full text-stone-600 space-y-3">
                   <Icons.Image size={48} strokeWidth={1} />
                   <p className="text-sm">暂无生成记录</p>
                 </div>
@@ -1122,7 +1178,7 @@ const App: React.FC = () => {
                 state.history.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-stone-50 rounded-2xl p-4 space-y-3 hover:bg-stone-100 transition-colors cursor-pointer group"
+                    className="bg-stone-950 rounded-2xl p-4 space-y-3 hover:bg-stone-800 transition-colors cursor-pointer group border border-stone-800"
                     onClick={() => {
                       // 加载提示词到编辑器
                       setState(prev => ({
@@ -1141,7 +1197,7 @@ const App: React.FC = () => {
                     {/* Images Row */}
                     <div className="flex gap-3">
                       {/* Original Image */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden border border-stone-200 flex-shrink-0">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden border border-stone-700 flex-shrink-0">
                         <img
                           src={`data:${item.mimeType || 'image/png'};base64,${item.originalImage}`}
                           alt="Original"
@@ -1149,11 +1205,11 @@ const App: React.FC = () => {
                         />
                       </div>
                       {/* Arrow */}
-                      <div className="flex items-center text-stone-300">
+                      <div className="flex items-center text-stone-600">
                         <Icons.ArrowRight size={16} />
                       </div>
                       {/* Generated Image */}
-                      <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-orange-200 flex-shrink-0 shadow-sm">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-orange-900/50 flex-shrink-0 shadow-sm">
                         {item.generatedImage ? (
                           <img
                             src={`data:image/png;base64,${item.generatedImage}`}
@@ -1161,16 +1217,16 @@ const App: React.FC = () => {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                         ) : (
-                          <div className="w-full h-full bg-stone-200 flex items-center justify-center text-stone-400">
+                          <div className="w-full h-full bg-stone-800 flex items-center justify-center text-stone-600">
                             <Icons.Image size={20} />
                           </div>
                         )}
                       </div>
                     </div>
                     {/* Prompt Preview */}
-                    <p className="text-xs text-stone-500 line-clamp-2 leading-relaxed">{item.prompt}</p>
+                    <p className="text-xs text-stone-400 line-clamp-2 leading-relaxed">{item.prompt}</p>
                     {/* Timestamp */}
-                    <div className="flex items-center gap-2 text-[10px] text-stone-400">
+                    <div className="flex items-center gap-2 text-[10px] text-stone-600">
                       <Icons.Clock size={10} />
                       {new Date(item.timestamp).toLocaleString('zh-CN')}
                     </div>
@@ -1182,10 +1238,9 @@ const App: React.FC = () => {
         </div>
       )}
 
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-stone-200 h-16 flex items-center justify-between px-10">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/90 backdrop-blur-md border-b border-stone-800 h-16 flex items-center justify-between px-10">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setShowLanding(true)}>
-          <div className="w-8 h-8 bg-black rounded flex items-center justify-center text-white shadow-xl"><Icons.Compass size={18} /></div>
-          <span className="font-serif font-bold text-xl tracking-tight text-stone-800">UnImage</span>
+          <span className="font-serif font-bold text-xl tracking-tight text-stone-200">UnImage <span className="text-orange-500 text-sm align-top">PRO</span></span>
         </div>
 
         {/* 全局进度条 */}
@@ -1195,37 +1250,37 @@ const App: React.FC = () => {
           />
         )}
         <div className="flex items-center gap-2">
-          <button onClick={() => setIsPromptLabOpen(true)} className="p-2.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-amber-500 transition-all" title="Prompt Lab"><Icons.Wand2 size={20} /></button>
-          <button onClick={() => setIsHelpOpen(true)} className="p-2.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-orange-500 transition-all" title="帮助文档"><Icons.Help size={20} /></button>
-          <button onClick={() => setState(prev => ({ ...prev, isHistoryOpen: true }))} className="p-2.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-black transition-all" title="历史记录"><Icons.History size={20} /></button>
+          <button onClick={() => setIsPromptLabOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-amber-500 transition-all" title="Prompt Lab"><Icons.Wand2 size={20} /></button>
+          <button onClick={() => setIsHelpOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-orange-500 transition-all" title="帮助文档"><Icons.Help size={20} /></button>
+          <button onClick={() => setState(prev => ({ ...prev, isHistoryOpen: true }))} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-stone-200 transition-all" title="历史记录"><Icons.History size={20} /></button>
           <button
             onClick={() => {
               const newState = !soundEnabled;
               setSoundEnabled(newState);
               soundService.setEnabled(newState);
             }}
-            className={`p-2.5 rounded-full hover:bg-stone-100 transition-all ${soundEnabled ? 'text-blue-500' : 'text-stone-300'}`}
+            className={`p-2.5 rounded-full hover:bg-stone-800 transition-all ${soundEnabled ? 'text-blue-500' : 'text-stone-500'}`}
             title={soundEnabled ? '音效已启用' : '音效已关闭'}
           >
             {soundEnabled ? <Icons.Volume2 size={20} /> : <Icons.VolumeX size={20} />}
           </button>
-          <div className="w-px h-6 bg-stone-200 mx-1" />
-          <button onClick={handleSelectKey} className={`p-2.5 rounded-full hover:bg-stone-100 ${hasKey ? 'text-emerald-500' : 'text-stone-300'}`} title="API Key 状态"><Icons.Key size={20} /></button>
+          <div className="w-px h-6 bg-stone-800 mx-1" />
+          <button onClick={handleSelectKey} className={`p-2.5 rounded-full hover:bg-stone-800 ${hasKey ? 'text-emerald-500' : 'text-stone-500'}`} title="API Key 状态"><Icons.Key size={20} /></button>
         </div>
       </nav>
 
       <main className="fixed top-24 bottom-28 left-8 right-8 max-w-[1920px] mx-auto grid grid-cols-12 gap-4 z-0">
         {/* Left Sidebar: Assets & References */}
-        <div className="col-span-4 flex flex-col h-full bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm">
+        <div className="col-span-4 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
           <PanelHeader title="Visual Assets">
             <div className="flex items-center gap-2">
               {state.generatedImages.length > 0 && (
                 <>
-                  <div className="flex items-center gap-2 mr-2 border-r border-stone-100 pr-3">
-                    <span className={`text-[9px] font-bold uppercase transition-colors ${isComparisonMode ? 'text-orange-500' : 'text-stone-300'}`}>Compare</span>
+                  <div className="flex items-center gap-2 mr-2 border-r border-stone-800 pr-3">
+                    <span className={`text-[9px] font-bold uppercase transition-colors ${isComparisonMode ? 'text-orange-500' : 'text-stone-500'}`}>Compare</span>
                     <button
                       onClick={() => setIsComparisonMode(!isComparisonMode)}
-                      className={`w-7 h-4 rounded-full transition-colors flex items-center p-0.5 ${isComparisonMode ? 'bg-orange-500' : 'bg-stone-200 hover:bg-stone-300'}`}
+                      className={`w-7 h-4 rounded-full transition-colors flex items-center p-0.5 ${isComparisonMode ? 'bg-orange-500' : 'bg-stone-800 hover:bg-stone-700'}`}
                     >
                       <div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${isComparisonMode ? 'translate-x-3' : 'translate-x-0'}`} />
                     </button>
@@ -1233,7 +1288,7 @@ const App: React.FC = () => {
 
                   <button
                     onClick={() => handleDownloadHD(state.selectedHistoryIndex)}
-                    className="p-1.5 text-stone-400 hover:text-emerald-500 transition-colors rounded-lg hover:bg-emerald-50"
+                    className="p-1.5 text-stone-500 hover:text-emerald-400 transition-colors rounded-lg hover:bg-emerald-900/20"
                     title="Download HD"
                   >
                     <Icons.Download size={14} />
@@ -1242,7 +1297,7 @@ const App: React.FC = () => {
               )}
               <button
                 onClick={handleReset}
-                className="p-1.5 text-stone-400 hover:text-rose-500 transition-colors rounded-lg hover:bg-rose-50"
+                className="p-1.5 text-stone-500 hover:text-rose-400 transition-colors rounded-lg hover:bg-rose-900/20"
                 title="New Task"
               >
                 <Icons.Plus size={14} />
@@ -1260,7 +1315,7 @@ const App: React.FC = () => {
                     <ImageComparisonSlider
                       beforeImage={displayImage}
                       afterImage={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
-                      className="w-full h-full border-0 rounded-none bg-stone-50/30"
+                      className="w-full h-full border-0 rounded-none bg-stone-950/50"
                       layoutData={state.layoutData}
                       onToggleLayout={handleAnalyzeLayout}
                       isAnalyzingLayout={state.isAnalyzingLayout}
@@ -1270,7 +1325,7 @@ const App: React.FC = () => {
                     <ImageViewer
                       src={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
                       alt="Generated Result"
-                      className="w-full h-full border-0 rounded-none bg-stone-50/30"
+                      className="w-full h-full border-0 rounded-none bg-stone-950/50"
                       layoutData={state.layoutData}
                       onToggleLayout={handleAnalyzeLayout}
                       isAnalyzingLayout={state.isAnalyzingLayout}
@@ -1281,7 +1336,7 @@ const App: React.FC = () => {
                   <ImageViewer
                     src={displayImage}
                     alt="Source"
-                    className="w-full h-full border-0 rounded-none bg-stone-50/30"
+                    className="w-full h-full border-0 rounded-none bg-stone-950/50"
                     layoutData={state.layoutData}
                     onToggleLayout={handleAnalyzeLayout}
                     isAnalyzingLayout={state.isAnalyzingLayout}
@@ -1294,9 +1349,9 @@ const App: React.FC = () => {
         </div>
 
         {/* Center: Agent Workbench */}
-        <div className="col-span-5 flex flex-col h-full bg-white rounded-xl border border-stone-200 shadow-sm overflow-hidden relative">
+        <div className="col-span-5 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 shadow-sm overflow-hidden relative">
           <PanelHeader title="Workbench">
-            <div className="flex items-center bg-stone-100 p-0.5 rounded-lg">
+            <div className="flex items-center bg-stone-800 p-0.5 rounded-lg">
               {['STUDIO', 'AUDITOR', 'DESCRIPTOR', 'ARCHITECT'].map((tid) => {
                 const isStudio = tid === 'STUDIO';
                 const roleKey = isStudio ? AgentRole.SYNTHESIZER : tid as AgentRole;
@@ -1310,22 +1365,22 @@ const App: React.FC = () => {
                   <button
                     key={tid}
                     onClick={() => setActiveTab(tid as any)}
-                    className={`relative px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 ${activeTab === tid ? 'bg-white shadow-sm text-black' : 'text-stone-400 hover:text-stone-600'}`}
+                    className={`relative px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 ${activeTab === tid ? 'bg-stone-600 shadow-sm text-stone-100' : 'text-stone-500 hover:text-stone-300'}`}
                   >
-                    <div className={isCurrentStep ? 'text-blue-500 animate-pulse' : ''}>
+                    <div className={isCurrentStep ? 'text-blue-400 animate-pulse' : ''}>
                       {result?.isStreaming ? <Icons.RefreshCw size={12} className="animate-spin" /> : IconComponent && <IconComponent size={12} />}
                     </div>
                     <span className="text-[10px] font-bold uppercase tracking-tight">{isStudio ? 'Studio' : AGENTS[roleKey]?.name.split(' ')[0]}</span>
-                    {result?.isComplete && <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-white" />}
+                    {result?.isComplete && <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-stone-800" />}
                   </button>
                 );
               })}
             </div>
           </PanelHeader>
 
-          <div className="flex-1 min-h-0 bg-white relative">
+          <div className="flex-1 min-h-0 bg-stone-900 relative">
             {!state.image ? (
-              <div className="h-full flex flex-col items-center justify-center text-stone-200 space-y-4">
+              <div className="h-full flex flex-col items-center justify-center text-stone-700 space-y-4">
                 <Icons.Compass size={48} strokeWidth={1} className="animate-spin duration-10000 opacity-20" />
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-50">Visual Decoding Standby</p>
               </div>
@@ -1334,7 +1389,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Right Sidebar: AI Chat */}
-        <div className="col-span-3 flex flex-col h-full bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="col-span-3 flex flex-col h-full bg-stone-900 border border-stone-800 rounded-xl overflow-hidden shadow-sm">
           <PanelHeader title="AI Assistant" />
           <div className="flex-1 min-h-0 relative">
             <ChatPanel
@@ -1350,41 +1405,22 @@ const App: React.FC = () => {
 
       {/* Persistence History Bottom Bar */}
       {/* Persistence History Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 h-24 bg-white/95 backdrop-blur-md border-t border-stone-200 z-40 transform transition-transform duration-300 ease-in-out flex items-center shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 left-0 right-0 h-24 bg-stone-950/90 backdrop-blur-md border-t border-stone-800 z-40 transform transition-transform duration-300 ease-in-out flex items-center shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
         {/* History List - Full Width */}
         {state.generatedImages.length === 0 ? (
-          <div className="w-full flex items-center justify-center text-stone-300 gap-2">
+          <div className="w-full flex items-center justify-center text-stone-600 gap-2">
             <Icons.Image size={24} strokeWidth={1.5} />
             <span className="text-xs font-medium">No history records</span>
           </div>
         ) : (
           <div className="flex-1 flex items-center gap-1 overflow-x-auto overflow-y-hidden w-full h-full py-2 custom-scrollbar px-6">
             {state.generatedImages.map((img, index) => (
-              <div key={index} className="flex-shrink-0 w-20 h-20 group relative cursor-pointer">
+              <div key={index} className="flex-shrink-0 w-20 h-20 relative">
                 <HistoryThumbnail
                   imageUrl={`data:image/png;base64,${img}`}
                   index={index}
                   isActive={index === state.selectedHistoryIndex}
-                  onClick={() => {
-                    const historyItem = state.history[index];
-                    // 1. 设置选中索引
-                    setSelectedHistoryIndex(index);
-
-                    // 2. 恢复应用状态到该历史时刻
-                    if (historyItem) {
-                      setDisplayImage(`data:${historyItem.mimeType || 'image/png'};base64,${historyItem.originalImage}`);
-                      setState(prev => ({
-                        ...prev,
-                        editablePrompt: historyItem.prompt,
-                        promptCache: { ...prev.promptCache, CN: historyItem.prompt },
-                        // 恢复原始图片上下文
-                        image: historyItem.originalImage,
-                        mimeType: historyItem.mimeType || 'image/png',
-                        detectedAspectRatio: historyItem.detectedAspectRatio || '1:1',
-                        generatedImage: historyItem.generatedImage
-                      }));
-                    }
-                  }}
+                  onClick={() => loadHistoryItem(index)}
                   onDelete={() => handleDeleteHistoryItem(index)}
                 />
               </div>

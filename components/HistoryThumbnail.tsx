@@ -32,36 +32,30 @@ export const HistoryThumbnail: React.FC<HistoryThumbnailProps> = ({
     <div
       onClick={onClick}
       className={`
-        relative aspect-square rounded-xl overflow-hidden border-2 cursor-pointer
+        relative w-full h-full rounded-lg overflow-hidden border cursor-pointer
         transition-all duration-200 group
         ${isActive
-          ? 'border-orange-500 ring-4 ring-orange-50 shadow-lg'
-          : 'border-stone-200 hover:border-stone-300 hover:shadow-md'
+          ? 'border-white opacity-100'
+          : 'border-transparent hover:border-stone-700 opacity-60 hover:opacity-100'
         }
       `}
     >
       <img
         src={imageUrl}
         alt={`Generated ${index + 1}`}
-        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+        className="w-full h-full object-cover transition-transform duration-200"
       />
-
-      {isActive && (
-        <div className="absolute top-2 right-2 w-3 h-3 bg-orange-500 rounded-full ring-2 ring-white shadow-md animate-pulse" />
-      )}
 
       {/* Delete button - appears on hover */}
       {onDelete && (
         <button
           onClick={handleDelete}
-          className="absolute top-1 left-1 p-1 bg-black/60 hover:bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          className="absolute top-1 left-1 p-1 bg-black/60 hover:bg-rose-500/80 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 backdrop-blur-sm"
           title="删除此记录"
         >
-          <Icons.X size={12} className="text-white" />
+          <Icons.X size={10} className="text-white" />
         </button>
       )}
-
-
     </div>
   );
 };
