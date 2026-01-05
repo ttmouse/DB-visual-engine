@@ -61,16 +61,7 @@ export const HistoryThumbnail: React.FC<HistoryThumbnailProps> = ({
         </button>
       )}
 
-      {/* Download button - appears on hover (bottom right) */}
-      {onDownloadHD && (
-        <button
-          onClick={handleDownloadHD}
-          className="absolute bottom-1 right-1 p-1.5 bg-black/60 hover:bg-emerald-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-          title="下载原图"
-        >
-          <Icons.Download size={12} className="text-white" />
-        </button>
-      )}
+
     </div>
   );
 };

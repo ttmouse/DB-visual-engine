@@ -28,9 +28,7 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
 }) => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
-  const [imageHeight, setImageHeight] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const beforeImgRef = useRef<HTMLImageElement>(null);
 
   const handleMouseDown = () => setIsDragging(true);
   const handleMouseUp = () => setIsDragging(false);
@@ -53,36 +51,6 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
     setSliderPosition(percentage);
   };
 
-  // 当 beforeImage 加载完成后，获取图片的自然尺寸
-  useEffect(() => {
-    const img = new Image();
-    img.src = beforeImage;
-    img.onload = () => {
-      if (containerRef.current) {
-        const containerWidth = containerRef.current.clientWidth;
-        const aspectRatio = img.naturalHeight / img.naturalWidth;
-        setImageHeight(containerWidth * aspectRatio);
-      }
-    };
-    img.onerror = () => {
-      setImageHeight(400);
-    };
-  }, [beforeImage]);
-
-  // 监听窗口大小变化，重新计算高度
-  useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current && beforeImgRef.current) {
-        const containerWidth = containerRef.current.clientWidth;
-        const aspectRatio = beforeImgRef.current.naturalHeight / beforeImgRef.current.naturalWidth;
-        setImageHeight(containerWidth * aspectRatio);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   // 监听拖拽事件
   useEffect(() => {
     if (isDragging) {
@@ -103,25 +71,20 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden select-none group ${className}`}
-      style={{
-        height: imageHeight || 400,
-        minHeight: imageHeight ? undefined : 400,
-      }}
+      className={`relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden select-none group h-full w-full ${className}`}
     >
-      <img ref={beforeImgRef} src={beforeImage} alt="" className="hidden" />
 
       <img
         src={afterImage}
         alt={afterLabel}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-contain"
         draggable={false}
       />
 
       <img
         src={beforeImage}
         alt={beforeLabel}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-contain"
         style={{
           clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
         }}

@@ -1212,15 +1212,17 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main className="pt-24 px-8 max-w-[1920px] mx-auto grid grid-cols-12 gap-8 h-[calc(100vh-6rem)]">
-        {/* Left Sidebar: Assets & References - Scrollable */}
-        <div className="col-span-4 flex flex-col min-h-0 h-full pb-10 overflow-y-auto custom-scrollbar">
+      <main className="pt-24 px-8 max-w-[1920px] mx-auto grid grid-cols-12 gap-8 h-[calc(100vh-6rem-8rem)] pb-4">
+        {/* Left Sidebar: Assets & References */}
+        <div className="col-span-4 flex flex-col h-full min-h-0 overflow-hidden relative">
           {/* 上部分：图片区域 */}
-          <div className="flex-shrink-0">
+          <div className="flex-1 min-h-0 flex flex-col relative">
             {!displayImage ? (
-              <ImageUploader onImageSelected={handleFileSelected} disabled={state.isProcessing} />
+              <div className="flex-1 flex flex-col relative">
+                <ImageUploader onImageSelected={handleFileSelected} disabled={state.isProcessing} />
+              </div>
             ) : (
-              <div className="flex flex-col space-y-2 animate-in slide-in-from-left duration-700">
+              <div className="flex-1 flex flex-col h-full min-h-0 animate-in slide-in-from-left duration-700 space-y-2">
 
                 {/* 合并的顶部操作栏 */}
                 <div className="flex items-center justify-between px-1 flex-shrink-0">
@@ -1233,21 +1235,32 @@ const App: React.FC = () => {
                       </span>
                     )}
                   </h2>
-                  <button
-                    onClick={handleReset}
-                    className="flex items-center gap-1.5 text-[9px] font-bold text-stone-400 hover:text-rose-500 transition-colors uppercase"
-                  >
-                    <Icons.Plus size={10} /> New Task
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {state.generatedImages.length > 0 && (
+                      <button
+                        onClick={() => handleDownloadHD(state.selectedHistoryIndex)}
+                        className="flex items-center gap-1.5 text-[9px] font-bold text-stone-400 hover:text-emerald-500 transition-colors uppercase"
+                        title="下载当前原图"
+                      >
+                        <Icons.Download size={10} /> Download
+                      </button>
+                    )}
+                    <button
+                      onClick={handleReset}
+                      className="flex items-center gap-1.5 text-[9px] font-bold text-stone-400 hover:text-rose-500 transition-colors uppercase"
+                    >
+                      <Icons.Plus size={10} /> New Task
+                    </button>
+                  </div>
                 </div>
 
                 {/* 对比视图或原图 */}
-                <div className="flex-shrink-0">
+                <div className="flex-1 min-h-0 relative rounded-xl overflow-hidden bg-stone-50 border border-stone-200">
                   {state.generatedImages.length > 0 ? (
                     <ImageComparisonSlider
                       beforeImage={displayImage}
                       afterImage={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
-                      className="shadow-lg"
+                      className="w-full h-full"
                       layoutData={state.layoutData}
                       onToggleLayout={handleAnalyzeLayout}
                       isAnalyzingLayout={state.isAnalyzingLayout}
@@ -1256,12 +1269,13 @@ const App: React.FC = () => {
                   ) : (
                     /* 没有生成图时只显示原图 */
                     <>
-                      <div className="flex items-center justify-between px-1 mb-2">
-                        <h2 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Original Image</h2>
+                      <div className="absolute top-3 left-3 z-10">
+                        <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest bg-black/50 text-white px-2 py-1 rounded backdrop-blur-md">Original Image</span>
                       </div>
                       <ImageViewer
                         src={displayImage}
                         alt="Source"
+                        className="w-full h-full border-0 rounded-none bg-transparent"
                         layoutData={state.layoutData}
                         onToggleLayout={handleAnalyzeLayout}
                         isAnalyzingLayout={state.isAnalyzingLayout}
@@ -1273,39 +1287,6 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* 下方：历史缩略图多宫格 - 始终显示 */}
-          {state.generatedImages.length > 0 && (
-            <div className="mt-4">
-              <h2 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3 px-1">
-                History ({state.generatedImages.length})
-              </h2>
-              <div className="grid grid-cols-4 gap-1 pb-16">
-                {state.generatedImages.map((img, index) => (
-                  <HistoryThumbnail
-                    key={index}
-                    imageUrl={`data:image/png;base64,${img}`}
-                    index={index}
-                    isActive={index === state.selectedHistoryIndex}
-                    onClick={() => {
-                      setSelectedHistoryIndex(index);
-                      // 加载历史记录的提示词
-                      const historyItem = state.history[index];
-                      if (historyItem?.prompt) {
-                        setState(prev => ({
-                          ...prev,
-                          editablePrompt: historyItem.prompt,
-                          promptCache: { ...prev.promptCache, CN: historyItem.prompt }
-                        }));
-                      }
-                    }}
-                    onDelete={() => handleDeleteHistoryItem(index)}
-                    onDownloadHD={() => handleDownloadHD(index)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Center: Agent Workbench */}
@@ -1357,6 +1338,57 @@ const App: React.FC = () => {
           />
         </div>
       </main>
+
+      {/* Persistence History Bottom Bar */}
+      <div className="fixed bottom-0 left-0 right-0 h-32 bg-white/95 backdrop-blur-md border-t border-stone-200 z-[100] transform transition-transform duration-300 ease-in-out px-10 flex items-center shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        {/* Title Tag */}
+        <div className="absolute top-0 left-10 -translate-y-1/2 bg-stone-800 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg uppercase tracking-widest flex items-center gap-1.5">
+          <Icons.History size={10} />
+          History
+          <span className="bg-stone-700 px-1.5 rounded-full text-[9px]">{state.generatedImages.length}</span>
+        </div>
+
+        {state.generatedImages.length === 0 ? (
+          <div className="w-full flex items-center justify-center text-stone-300 gap-2">
+            <Icons.Image size={24} strokeWidth={1.5} />
+            <span className="text-xs font-medium">No history records</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 overflow-x-auto overflow-y-hidden w-full h-full py-4 custom-scrollbar px-4">
+            {state.generatedImages.map((img, index) => (
+              <div key={index} className="flex-shrink-0 w-24 h-24">
+                <HistoryThumbnail
+                  imageUrl={`data:image/png;base64,${img}`}
+                  index={index}
+                  isActive={index === state.selectedHistoryIndex}
+                  onClick={() => {
+                    const historyItem = state.history[index];
+                    // 1. 设置选中索引
+                    setSelectedHistoryIndex(index);
+
+                    // 2. 恢复应用状态到该历史时刻
+                    if (historyItem) {
+                      setDisplayImage(`data:${historyItem.mimeType || 'image/png'};base64,${historyItem.originalImage}`);
+                      setState(prev => ({
+                        ...prev,
+                        editablePrompt: historyItem.prompt,
+                        promptCache: { ...prev.promptCache, CN: historyItem.prompt },
+                        // 恢复原始图片上下文
+                        image: historyItem.originalImage,
+                        mimeType: historyItem.mimeType || 'image/png',
+                        detectedAspectRatio: historyItem.detectedAspectRatio || '1:1',
+                        generatedImage: historyItem.generatedImage
+                      }));
+                    }
+                  }}
+                  onDelete={() => handleDeleteHistoryItem(index)}
+                  onDownloadHD={() => handleDownloadHD(index)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
