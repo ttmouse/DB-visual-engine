@@ -71,7 +71,7 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`relative rounded-xl border border-stone-200 bg-stone-50 overflow-hidden select-none group h-full w-full ${className}`}
+      className={`relative rounded-xl border border-stone-700 bg-stone-950 overflow-hidden select-none group h-full w-full ${className}`}
     >
 
       <img

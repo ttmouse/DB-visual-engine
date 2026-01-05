@@ -18,6 +18,7 @@ import { PipelineProgressView } from './components/PipelineProgressView';
 import { AGENTS, PIPELINE_ORDER } from './constants';
 import { AgentRole, AppState, HistoryItem, ChatMessage, PipelineStepStatus } from './types';
 import { ChatPanel } from './components/ChatPanel';
+import { ChatDrawer } from './components/ChatDrawer';
 import { PanelHeader } from './components/PanelHeader';
 import { LandingPage } from './components/LandingPage';
 import { DocumentationModal } from './components/DocumentationModal';
@@ -74,6 +75,16 @@ const App: React.FC = () => {
   const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatProcessing, setIsChatProcessing] = useState(false);
+  const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
+  const [aiInput, setAiInput] = useState('');
+
+  // Resizable panel state (percentage, stored in localStorage)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('unimage_left_panel_width');
+    return saved ? parseFloat(saved) : 50;
+  });
+  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+  const [isGlobalDragging, setIsGlobalDragging] = useState(false);
 
   const isPipelineRunning = useRef(false);
 
@@ -93,6 +104,113 @@ const App: React.FC = () => {
   const [showProgressView, setShowProgressView] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
   const [reverseMode, setReverseMode] = useState<'full' | 'quick'>('quick'); // 'full' = 完整4步骤, 'quick' = 单步快速逆向
+  const mainRef = useRef<HTMLElement>(null);
+
+  // Save panel width to localStorage
+  useEffect(() => {
+    localStorage.setItem('unimage_left_panel_width', leftPanelWidth.toString());
+  }, [leftPanelWidth]);
+
+  // Handle divider drag
+  useEffect(() => {
+    if (!isDraggingDivider) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!mainRef.current) return;
+      const rect = mainRef.current.getBoundingClientRect();
+      const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
+      // Clamp between 25% and 75%
+      setLeftPanelWidth(Math.min(75, Math.max(25, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingDivider(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingDivider]);
+
+  // Global drag-drop for image replacement
+  useEffect(() => {
+    let dragCounter = 0;
+
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer?.types.includes('Files')) {
+        setIsGlobalDragging(true);
+      }
+    };
+
+    const handleDragLeave = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter === 0) {
+        setIsGlobalDragging(false);
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter = 0;
+      setIsGlobalDragging(false);
+
+      const file = e.dataTransfer?.files?.[0];
+      if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) {
+        if (file.size > 20 * 1024 * 1024) {
+          showToast('文件过大 (最大 20MB)', 'error');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          const cleanBase64 = base64String.split(',')[1];
+
+          // Calculate aspect ratio
+          if (file.type.startsWith('image/')) {
+            const img = new Image();
+            img.onload = () => {
+              const ratio = img.naturalWidth / img.naturalHeight;
+              const ratios = [
+                { id: "1:1", value: 1.0 },
+                { id: "3:4", value: 0.75 },
+                { id: "4:3", value: 1.333 },
+                { id: "9:16", value: 0.5625 },
+                { id: "16:9", value: 1.777 }
+              ];
+              const closest = ratios.reduce((prev, curr) =>
+                Math.abs(curr.value - ratio) < Math.abs(prev.value - ratio) ? curr : prev
+              );
+              handleFileSelected(cleanBase64, closest.id, file.type);
+            };
+            img.src = base64String;
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    window.addEventListener('dragenter', handleDragEnter);
+    window.addEventListener('dragleave', handleDragLeave);
+    window.addEventListener('dragover', handleDragOver);
+    window.addEventListener('drop', handleDrop);
+
+    return () => {
+      window.removeEventListener('dragenter', handleDragEnter);
+      window.removeEventListener('dragleave', handleDragLeave);
+      window.removeEventListener('dragover', handleDragOver);
+      window.removeEventListener('drop', handleDrop);
+    };
+  }, []);
 
   // Auto-save current task to cache whenever relevant state changes
   useEffect(() => {
@@ -991,7 +1109,8 @@ const App: React.FC = () => {
           </div>
 
           {/* Bottom Actions */}
-          <div className="p-4 border-t border-stone-800 flex-shrink-0">
+          <div className="p-4 border-t border-stone-800 flex-shrink-0 space-y-3">
+            {/* Button Row */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setState(prev => ({ ...prev, useReferenceImage: !prev.useReferenceImage }))}
@@ -1004,24 +1123,19 @@ const App: React.FC = () => {
               <button
                 onClick={() => {
                   if (reverseMode === 'quick') {
-                    // 快速逆向模式 - 单步骤
                     handleQuickReverse();
                   } else {
-                    // 完整分析模式 - 4个步骤
-                    // 检查三个字段是否为空
                     const hasAuditorContent = state.results[AgentRole.AUDITOR]?.content?.trim();
                     const hasDescriptorContent = state.results[AgentRole.DESCRIPTOR]?.content?.trim();
                     const hasArchitectContent = state.results[AgentRole.ARCHITECT]?.content?.trim();
 
                     if (!hasAuditorContent && !hasDescriptorContent && !hasArchitectContent) {
-                      // 三个字段都为空，基于原始图片生成
                       if (state.image) {
                         handleStartPipeline();
                       } else {
                         showToast('请先上传图片', 'error');
                       }
                     } else {
-                      // 有内容，重新生成 SYNTHESIZER
                       handleRegenerateAgent(AgentRole.SYNTHESIZER);
                     }
                   }
@@ -1042,13 +1156,69 @@ const App: React.FC = () => {
                 生成图片
               </button>
               <button
+                onClick={() => {
+                  handleChatSendMessage('帮我质检一下');
+                  setIsChatDrawerOpen(true);
+                }}
+                disabled={!state.image || !state.generatedImage || isChatProcessing}
+                className="px-3 py-2 bg-rose-900/20 hover:bg-rose-900/40 text-rose-400 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0"
+                title="质检"
+              >
+                <Icons.ScanEye size={14} />
+                质检
+              </button>
+              <button
                 onClick={() => { navigator.clipboard.writeText(state.editablePrompt); showToast('已复制', 'success'); }}
                 disabled={!state.editablePrompt}
                 className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0"
                 title="复制提示词"
               >
-                <Icons.CheckSquare size={14} />
+                <Icons.Copy size={14} />
                 复制
+              </button>
+              <button
+                onClick={() => setIsChatDrawerOpen(!isChatDrawerOpen)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all flex-shrink-0 ${isChatDrawerOpen ? 'bg-amber-900/30 text-amber-400' : 'bg-stone-800 text-stone-500 hover:text-stone-300'}`}
+                title="历史记录"
+              >
+                <Icons.MessageSquare size={14} />
+                历史
+              </button>
+            </div>
+
+            {/* AI Input Row */}
+            <div className="flex items-center gap-2 bg-stone-800 rounded-xl p-2 border border-stone-700">
+              <input
+                type="text"
+                value={aiInput}
+                onChange={(e) => setAiInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && aiInput.trim()) {
+                    handleChatSendMessage(aiInput.trim());
+                    setAiInput('');
+                    setIsChatDrawerOpen(true);
+                  }
+                }}
+                placeholder="输入 AI 指令...（例如：把光影描述改得更柔和）"
+                className="flex-1 bg-transparent border-none text-sm outline-none text-stone-200 placeholder:text-stone-500"
+                disabled={isChatProcessing}
+              />
+              <button
+                onClick={() => {
+                  if (aiInput.trim()) {
+                    handleChatSendMessage(aiInput.trim());
+                    setAiInput('');
+                    setIsChatDrawerOpen(true);
+                  }
+                }}
+                disabled={!aiInput.trim() || isChatProcessing}
+                className="p-2 bg-stone-700 text-white rounded-lg disabled:opacity-40 transition-all hover:bg-stone-600"
+              >
+                {isChatProcessing ? (
+                  <Icons.RefreshCw size={16} className="animate-spin" />
+                ) : (
+                  <Icons.ChevronRight size={16} />
+                )}
               </button>
             </div>
           </div>
@@ -1104,6 +1274,19 @@ const App: React.FC = () => {
       <DocumentationModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
       <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
+
+      {/* Global Drag Overlay */}
+      {isGlobalDragging && (
+        <div className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-md flex items-center justify-center pointer-events-none animate-in fade-in duration-200">
+          <div className="flex flex-col items-center gap-4 text-white">
+            <div className="w-24 h-24 rounded-full bg-orange-500/20 flex items-center justify-center animate-pulse">
+              <Icons.Upload size={48} className="text-orange-500" />
+            </div>
+            <p className="text-xl font-medium">拖放图片以替换</p>
+            <p className="text-sm text-stone-400">支持图片和视频文件</p>
+          </div>
+        </div>
+      )}
 
       {/* Fullscreen Overlay */}
       {fullscreenImg && (
@@ -1269,9 +1452,9 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main className="fixed top-24 bottom-28 left-8 right-8 max-w-[1920px] mx-auto grid grid-cols-12 gap-4 z-0">
-        {/* Left Sidebar: Assets & References */}
-        <div className="col-span-4 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
+      <main ref={mainRef} className={`fixed top-24 bottom-28 left-8 right-8 max-w-[1920px] mx-auto flex gap-0 z-0 ${isDraggingDivider ? 'select-none' : ''}`}>
+        {/* Left Panel: Assets & References */}
+        <div style={{ width: `${leftPanelWidth}%` }} className="flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
           <PanelHeader title="Visual Assets">
             <div className="flex items-center gap-2">
               {state.generatedImages.length > 0 && (
@@ -1348,8 +1531,16 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Center: Agent Workbench */}
-        <div className="col-span-5 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 shadow-sm overflow-hidden relative">
+        {/* Draggable Divider */}
+        <div
+          onMouseDown={() => setIsDraggingDivider(true)}
+          className={`w-2 cursor-col-resize flex items-center justify-center group hover:bg-stone-700/50 transition-colors ${isDraggingDivider ? 'bg-orange-500/30' : ''}`}
+        >
+          <div className={`w-0.5 h-12 rounded-full transition-colors ${isDraggingDivider ? 'bg-orange-500' : 'bg-stone-700 group-hover:bg-stone-500'}`} />
+        </div>
+
+        {/* Right Panel: Agent Workbench */}
+        <div className="flex-1 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 shadow-sm overflow-hidden relative">
           <PanelHeader title="Workbench">
             <div className="flex items-center bg-stone-800 p-0.5 rounded-lg">
               {['STUDIO', 'AUDITOR', 'DESCRIPTOR', 'ARCHITECT'].map((tid) => {
@@ -1387,21 +1578,16 @@ const App: React.FC = () => {
             ) : renderTabContent()}
           </div>
         </div>
-
-        {/* Right Sidebar: AI Chat */}
-        <div className="col-span-3 flex flex-col h-full bg-stone-900 border border-stone-800 rounded-xl overflow-hidden shadow-sm">
-          <PanelHeader title="AI Assistant" />
-          <div className="flex-1 min-h-0 relative">
-            <ChatPanel
-              messages={chatMessages}
-              onSendMessage={handleChatSendMessage}
-              onApplySuggestions={handleApplySuggestions}
-              onToggleSuggestion={handleToggleSuggestion}
-              isProcessing={isChatProcessing}
-            />
-          </div>
-        </div>
       </main>
+
+      {/* Chat Drawer */}
+      <ChatDrawer
+        isOpen={isChatDrawerOpen}
+        onClose={() => setIsChatDrawerOpen(false)}
+        messages={chatMessages}
+        onApplySuggestions={handleApplySuggestions}
+        onToggleSuggestion={handleToggleSuggestion}
+      />
 
       {/* Persistence History Bottom Bar */}
       {/* Persistence History Bottom Bar */}

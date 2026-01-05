@@ -179,8 +179,8 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, d
     <div
       className={`
         relative group cursor-pointer transition-all duration-500
-        border-2 border-dashed rounded-3xl flex-1 min-h-[400px] flex flex-col items-center justify-center
-        ${isDragging ? 'border-orange-500 bg-orange-50/20' : 'border-stone-200 hover:border-stone-400 bg-white shadow-inner'}
+        border-2 border-dashed rounded-xl flex-1 flex flex-col items-center justify-center
+        ${isDragging ? 'border-orange-500 bg-orange-900/20' : 'border-stone-700 hover:border-stone-500 bg-stone-950'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
       `}
       onClick={() => inputRef.current?.click()}
@@ -190,14 +190,14 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, d
     >
       <input type="file" ref={inputRef} onChange={handleChange} accept="image/*,video/*" className="hidden" disabled={disabled} />
 
-      <div className="w-20 h-20 rounded-full bg-stone-50 flex items-center justify-center text-stone-300 mb-6 group-hover:scale-110 group-hover:text-orange-500 transition-all duration-500">
-        <Icons.Upload size={32} />
+      <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center text-stone-500 mb-4 group-hover:scale-110 group-hover:text-orange-500 transition-all duration-500">
+        <Icons.Upload size={28} />
       </div>
-      <div className="text-center space-y-2 px-10">
-        <h3 className="text-lg font-serif font-bold text-stone-800">拖入、点击或粘贴参考资产</h3>
-        <p className="text-xs text-stone-400 font-medium leading-relaxed">
+      <div className="text-center space-y-2 px-8">
+        <h3 className="text-base font-medium text-stone-300">拖入、点击或粘贴参考资产</h3>
+        <p className="text-xs text-stone-500 leading-relaxed">
           支持高保真图像或 Sora 级短视频解析 (MAX 20MB)<br />
-          <span className="text-stone-300 mt-2 block italic">粘贴快捷键: Ctrl+V / Cmd+V</span>
+          <span className="text-stone-600 mt-1 block">粘贴快捷键: Ctrl+V / Cmd+V</span>
         </p>
       </div>
     </div>

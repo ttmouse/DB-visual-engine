@@ -1,15 +1,1 @@
-{
-  "projectId": "prj_Hm1B9YamCC7WlT66AdjdgTXm9CwA",
-  "orgId": "team_O84j7xiIgpt87pqFMiZLYNcR",
-  "settings": {
-    "createdAt": 1767527719157,
-    "framework": "vite",
-    "devCommand": null,
-    "installCommand": null,
-    "buildCommand": "npm run build",
-    "outputDirectory": "dist",
-    "rootDirectory": null,
-    "directoryListing": false,
-    "nodeVersion": "24.x"
-  }
-}
+{"projectId":"prj_Hm1B9YamCC7WlT66AdjdgTXm9CwA","orgId":"team_O84j7xiIgpt87pqFMiZLYNcR","projectName":"trae_8i2hxwtv","neverMindDeployCard":true}
