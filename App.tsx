@@ -241,7 +241,14 @@ const App: React.FC = () => {
 
   const handleReset = () => {
     setDisplayImage(null);
-    setState(prev => ({ ...INITIAL_STATE, history: prev.history }));
+    // 新建任务：只清空提示词和分析结果，保留历史记录和生成的图片
+    setState(prev => ({
+      ...INITIAL_STATE,
+      history: prev.history,
+      generatedImages: prev.generatedImages,
+      generatedImage: prev.generatedImage,
+      selectedHistoryIndex: prev.selectedHistoryIndex
+    }));
     clearCurrentTask(); // Clear cache when starting new task
   };
 
@@ -1151,24 +1158,35 @@ const App: React.FC = () => {
       <main className="pt-24 px-8 max-w-[1920px] mx-auto grid grid-cols-12 gap-8 h-[calc(100vh-6rem)]">
         {/* Left Sidebar: Assets & References - Fixed Scrolling */}
         <div className="col-span-4 flex flex-col min-h-0 h-full pb-10">
-          {!displayImage ? (
-            <ImageUploader onImageSelected={handleFileSelected} disabled={state.isProcessing} />
-          ) : (
-            <div className="flex flex-col h-full space-y-4 animate-in slide-in-from-left duration-700">
+          {/* 上部分：图片区域 */}
+          <div className={`${state.generatedImages.length > 0 ? 'flex-shrink-0' : 'flex-1'}`}>
+            {!displayImage ? (
+              <ImageUploader onImageSelected={handleFileSelected} disabled={state.isProcessing} />
+            ) : (
+              <div className="flex flex-col space-y-2 animate-in slide-in-from-left duration-700">
 
-              {/* 顶部：对比视图或原图 */}
-              <div className="flex-shrink-0">
-                {state.generatedImages.length > 0 ? (
-                  <>
-                    <div className="flex items-center justify-between px-1 mb-2">
-                      <h2 className="text-[10px] font-bold text-orange-500 uppercase tracking-widest flex items-center gap-2">
-                        <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                        Image Comparison
-                      </h2>
-                      <span className="text-[9px] text-stone-400 font-medium">
+                {/* 合并的顶部操作栏 */}
+                <div className="flex items-center justify-between px-1 flex-shrink-0">
+                  <h2 className="text-[10px] font-bold text-orange-500 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                    {state.generatedImages.length > 0 ? 'Image Comparison' : 'Source Reference'}
+                    {state.generatedImages.length > 0 && (
+                      <span className="text-stone-400 font-normal ml-2">
                         {state.selectedHistoryIndex + 1} / {state.generatedImages.length}
                       </span>
-                    </div>
+                    )}
+                  </h2>
+                  <button
+                    onClick={handleReset}
+                    className="flex items-center gap-1.5 text-[9px] font-bold text-stone-400 hover:text-rose-500 transition-colors uppercase"
+                  >
+                    <Icons.Plus size={10} /> New Task
+                  </button>
+                </div>
+
+                {/* 对比视图或原图 */}
+                <div className="flex-shrink-0">
+                  {state.generatedImages.length > 0 ? (
                     <ImageComparisonSlider
                       beforeImage={displayImage}
                       afterImage={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
@@ -1178,44 +1196,55 @@ const App: React.FC = () => {
                       isAnalyzingLayout={state.isAnalyzingLayout}
                       onFullscreen={() => { setFullscreenImg(displayImage); setIsFullscreenComparison(true); }}
                     />
-                  </>
-                ) : (
-                  /* 没有生成图时只显示原图 */
-                  <>
-                    <div className="flex items-center justify-between px-1 mb-2">
-                      <h2 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Original Image</h2>
-                    </div>
-                    <ImageViewer
-                      src={displayImage}
-                      alt="Source"
-                      layoutData={state.layoutData}
-                      onToggleLayout={handleAnalyzeLayout}
-                      isAnalyzingLayout={state.isAnalyzingLayout}
-                      onFullscreen={() => setFullscreenImg(displayImage)}
-                    />
-                  </>
-                )}
-              </div>
-
-              {/* 下方：历史缩略图多宫格 */}
-              {state.generatedImages.length > 0 && (
-                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                  <h2 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3 px-1">
-                    History ({state.generatedImages.length})
-                  </h2>
-                  <div className="grid grid-cols-3 gap-3 pb-8">
-                    {state.generatedImages.map((img, index) => (
-                      <HistoryThumbnail
-                        key={index}
-                        imageUrl={`data:image/png;base64,${img}`}
-                        index={index}
-                        isActive={index === state.selectedHistoryIndex}
-                        onClick={() => setSelectedHistoryIndex(index)}
+                  ) : (
+                    /* 没有生成图时只显示原图 */
+                    <>
+                      <div className="flex items-center justify-between px-1 mb-2">
+                        <h2 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Original Image</h2>
+                      </div>
+                      <ImageViewer
+                        src={displayImage}
+                        alt="Source"
+                        layoutData={state.layoutData}
+                        onToggleLayout={handleAnalyzeLayout}
+                        isAnalyzingLayout={state.isAnalyzingLayout}
+                        onFullscreen={() => setFullscreenImg(displayImage)}
                       />
-                    ))}
-                  </div>
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
+            )}
+          </div>
+
+          {/* 下方：历史缩略图多宫格 - 始终显示 */}
+          {state.generatedImages.length > 0 && (
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar mt-4">
+              <h2 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-3 px-1">
+                History ({state.generatedImages.length})
+              </h2>
+              <div className="grid grid-cols-3 gap-3 pb-8">
+                {state.generatedImages.map((img, index) => (
+                  <HistoryThumbnail
+                    key={index}
+                    imageUrl={`data:image/png;base64,${img}`}
+                    index={index}
+                    isActive={index === state.selectedHistoryIndex}
+                    onClick={() => {
+                      setSelectedHistoryIndex(index);
+                      // 加载历史记录的提示词
+                      const historyItem = state.history[index];
+                      if (historyItem?.prompt) {
+                        setState(prev => ({
+                          ...prev,
+                          editablePrompt: historyItem.prompt,
+                          promptCache: { ...prev.promptCache, CN: historyItem.prompt }
+                        }));
+                      }
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
