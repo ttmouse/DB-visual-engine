@@ -21,7 +21,7 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
                 title: "⚡️ 快速开始",
                 icon: "Play",
                 content: `
-# 快速开始 (Quick Start)
+
 
 欢迎来到 UnImage！只需四步，即可完成您的第一次视觉逆向工程。
 
@@ -35,15 +35,11 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
 
 > 如果您还没有 Key，可以前往 Google AI Studio 免费申请。
 
-<br/>
-
 ### 2. 上传图片 (Upload Image)
 
 将您想要分析的图片**拖拽**到主界面的上传区域，或者点击中间的**上传图标**选择文件。
 
 > 支持 JPG, PNG, WEBP 等常见格式。
-
-<br/>
 
 ### 3. 启动分析 (Start Pipeline)
 
@@ -54,8 +50,6 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
 - 📝 **描述员**：提取视觉元素
 - 🏗️ **架构师**：分析构图结构
 - 🎨 **合成师**：生成绘画提示词
-
-<br/>
 
 ### 4. 获取提示词 (Get Prompt)
 
@@ -70,15 +64,13 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
                 title: "🧩 核心概念",
                 icon: "Compass",
                 content: `
-# 核心概念 (Core Concepts)
+
 
 ### 什么是视觉逆向？
 
 不同于简单的“图生文”，UnImage 采用**物理逆向协议**。
 
 它不只是识别物体，而是像拆解蓝图一样，分析画面的光影、材质、透视和渲染技术，从而能还原出高度逼真的 Prompt。
-
-<br/>
 
 ### Agent 协作
 
@@ -88,8 +80,6 @@ UnImage 并非单一模型，而是一个 **Agent 团队**：
 - **Descriptor**: 视觉翻译官，将像素转化为文字。
 - **Architect**: 空间设计师，负责透视和构图。
 - **Synthesizer**: 最终的 Prompt 工程师，汇总所有信息。
-
-<br/>
 
 ### 双语模式
 
@@ -109,7 +99,7 @@ UnImage 并非单一模型，而是一个 **Agent 团队**：
                 title: "🔄 逆向流水线",
                 icon: "RefreshCw",
                 content: `
-# 逆向流水线 (Reverse Pipeline)
+
 
 ### 标准流水线
 点击“开始分析”启动。这是最完整的分析流程，包含完整的 7 层物理逆向协议。
@@ -130,7 +120,7 @@ UnImage 并非单一模型，而是一个 **Agent 团队**：
                 title: "🎨 提示词工作室",
                 icon: "Edit2",
                 content: `
-# 提示词工作室 (Prompt Studio)
+
 
 这是您编辑和管理 Prompt 的核心工作台。
 
@@ -148,7 +138,7 @@ UnImage 并非单一模型，而是一个 **Agent 团队**：
                 title: "🖼️ 图像生成",
                 icon: "Image",
                 content: `
-# 图像生成 (Image Generation)
+
 
 UnImage 内置了高性能生成引擎，让您能立即验证 Prompt 的效果。
 
@@ -172,7 +162,7 @@ UnImage 内置了高性能生成引擎，让您能立即验证 Prompt 的效果�
                 title: "🎭 风格与参考图",
                 icon: "ScanEye",
                 content: `
-# 风格与参考图 (Reference & Style)
+
 
 ### 使用参考图
 打开 **"Use Reference Image"** 开关。
@@ -187,29 +177,13 @@ UnImage 内置了高性能生成引擎，让您能立即验证 Prompt 的效果�
 结合参考图模式，可以实现完美的“换皮”效果。
 `
             },
-            {
-                id: "layout-analysis",
-                title: "📐 蓝图解构",
-                icon: "PenTool",
-                content: `
-# 蓝图解构 (Layout Analysis)
 
-### 什么是 Layout？
-很多时候与 Prompt 无关，画面乱是因为**构图**没模仿对。
-蓝图解构功能可以识别画面中物体的位置（Bounding Boxes）。
-
-### 如何使用
-1.  在工具栏点击 **"Layout Analysis"**（或蓝图图标）。
-2.  系统会在原图上叠加显示识别出的物体框。
-3.  这能帮助您确认 AI 是否正确理解了画面的主体位置。
-`
-            },
             {
                 id: "qa-fix",
                 title: "✅ 质检与修复",
                 icon: "ShieldCheck",
                 content: `
-# 质检与修复 (QA & Fix)
+
 
 ### 自动质检
 点击 **"Run QA" (质量检查)**。

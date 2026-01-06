@@ -92,36 +92,43 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
     }
   }, [isDragging]);
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (!onZoomChange || !containerRef.current) return;
-    e.preventDefault();
+  // Fix for "Unable to preventDefault inside passive event listener invocation"
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const eventOffsetX = e.clientX - rect.left;
-    const eventOffsetY = e.clientY - rect.top;
+    const onWheel = (e: WheelEvent) => {
+      if (!onZoomChange) return;
+      e.preventDefault();
 
-    // Determine the center of the image being zoomed
-    let centerX = rect.width / 2;
-    const centerY = rect.height / 2;
+      const rect = container.getBoundingClientRect();
+      const eventOffsetX = e.clientX - rect.left;
+      const eventOffsetY = e.clientY - rect.top;
 
-    // Side-by-side mode adjustment
-    if (useSideBySide) {
-      if (eventOffsetX < rect.width / 2) {
-        // Left Image Center is at 25% width
-        centerX = rect.width / 4;
-      } else {
-        // Right Image Center is at 75% width
-        centerX = (rect.width * 3) / 4;
+      let centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      if (useSideBySide) {
+        if (eventOffsetX < rect.width / 2) {
+          centerX = rect.width / 4;
+        } else {
+          centerX = (rect.width * 3) / 4;
+        }
       }
-    }
 
-    // Mouse relative to the chosen center
-    const mouseX = eventOffsetX - centerX;
-    const mouseY = eventOffsetY - centerY;
+      const mouseX = eventOffsetX - centerX;
+      const mouseY = eventOffsetY - centerY;
 
-    const newZoom = calculateNewZoom(zoom, mouseX, mouseY, e.deltaY);
-    onZoomChange(newZoom);
-  };
+      const newZoom = calculateNewZoom(zoom, mouseX, mouseY, e.deltaY);
+      onZoomChange(newZoom);
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', onWheel);
+    };
+  }, [onZoomChange, useSideBySide, zoom]);
 
   const transformStyle = zoom.scale > 1
     ? {
@@ -136,7 +143,6 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
       <div
         ref={containerRef}
         className={`relative rounded-xl border border-stone-700 bg-stone-950 overflow-hidden select-none group h-full w-full ${className}`}
-        onWheel={handleWheel}
       >
         <div className="absolute inset-0 flex">
           {/* Before Image */}
@@ -211,7 +217,6 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
     <div
       ref={containerRef}
       className={`relative rounded-xl border border-stone-700 bg-stone-950 overflow-hidden select-none group h-full w-full ${className}`}
-      onWheel={handleWheel}
     >
 
       <img

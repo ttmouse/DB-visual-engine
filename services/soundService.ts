@@ -29,6 +29,20 @@ class SoundService {
     return this.enabled;
   }
 
+  // 停止所有音效
+  stopAll() {
+    if (this.audioContext && this.audioContext.state === 'running') {
+      this.audioContext.suspend().then(() => {
+        // Resume immediately or later? The user wants "Stop". 
+        // Suspending effectively stops sound.
+        // We can just create a new context next time or resume it when needed.
+        // For now, let's just close it or suspend.
+        this.audioContext?.close();
+        this.audioContext = null;
+      });
+    }
+  }
+
   // 开始音效 - 轻快的上升音
   playStart() {
     if (!this.enabled) return;
@@ -42,7 +56,7 @@ class SoundService {
 
       oscillator.frequency.setValueAtTime(400, ctx.currentTime);
       oscillator.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
-      
+
       gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
 
@@ -80,7 +94,7 @@ class SoundService {
     if (!this.enabled) return;
     try {
       const ctx = this.getContext();
-      
+
       // 播放和弦 (C-E-G)
       [523.25, 659.25, 783.99].forEach((freq, i) => {
         const oscillator = ctx.createOscillator();

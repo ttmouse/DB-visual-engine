@@ -79,7 +79,8 @@ const App: React.FC = () => {
   /* Existing state declarations */
   // ...
   const [apiMode, setApiMode] = useState<'official' | 'custom'>('custom');
-  const [activeModelName, setActiveModelName] = useState('Gemini 2.0 Flash'); // Default display
+  const [activeModelName, setActiveModelName] = useState('Gemini 3.0 Flash'); // Default display
+  const [isMentionMenuOpen, setIsMentionMenuOpen] = useState(false);
 
   // Consolidate initialization logic
   useEffect(() => {
@@ -217,6 +218,25 @@ const App: React.FC = () => {
   const [isDraggingNewImage, setIsDraggingNewImage] = useState(false);
 
   const isPipelineRunning = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setState(prev => ({
+      ...prev,
+      isProcessing: false,
+      isGeneratingImage: false,
+      results: Object.entries(prev.results).reduce((acc, [key, val]) => ({
+        ...acc,
+        [key]: { ...(val as object), isStreaming: false }
+      }), {} as typeof prev.results)
+    }));
+    isPipelineRunning.current = false;
+    showToast("操作已终止", "info");
+  };
 
   // 流水线进度管理
   const {
@@ -1318,50 +1338,56 @@ const App: React.FC = () => {
           <div className="p-4 border-t border-stone-800 flex-shrink-0 space-y-3">
             {/* Button Row */}
             <div className="flex items-center gap-2">
-              {/* Scrollable Tags Area */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-shrink-0 max-w-[40%]">
-                {/* Reference Tags */}
-                {state.image && (
-                  <button
-                    onClick={() => {
-                      const tag = '@原图';
-                      setAiInput(prev => {
-                        if (prev.includes(tag)) {
-                          return prev.replace(tag, '').replace(/\s{2,}/g, ' ').trim();
-                        }
-                        return (prev + ' ' + tag).trim();
-                      });
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-xs font-bold flex-shrink-0 whitespace-nowrap border ${aiInput.includes('@原图')
-                      ? 'bg-orange-900/30 text-orange-400 border-orange-500/30'
-                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-orange-400 border-transparent'
-                      }`}
-                    title={aiInput.includes('@原图') ? "取消引用原图" : "引用原图"}
-                  >
-                    <Icons.Image size={14} />
-                    @原图
-                  </button>
-                )}
-                {state.generatedImage && (
-                  <button
-                    onClick={() => {
-                      const tag = '@生成图';
-                      setAiInput(prev => {
-                        if (prev.includes(tag)) {
-                          return prev.replace(tag, '').replace(/\s{2,}/g, ' ').trim();
-                        }
-                        return (prev + ' ' + tag).trim();
-                      });
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-xs font-bold flex-shrink-0 whitespace-nowrap border ${aiInput.includes('@生成图')
-                      ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/30'
-                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-emerald-400 border-transparent'
-                      }`}
-                    title={aiInput.includes('@生成图') ? "取消引用生成图" : "引用生成图"}
-                  >
-                    <Icons.Image size={14} />
-                    @生成图
-                  </button>
+              {/* @ Mention Button with Dropdown */}
+              <div className="relative flex-shrink-0">
+                {(state.image || state.generatedImage) && (
+                  <>
+                    <button
+                      onClick={() => setIsMentionMenuOpen(!isMentionMenuOpen)}
+                      className={`flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap border ${isMentionMenuOpen
+                        ? 'bg-amber-900/40 text-amber-400 border-amber-500/30'
+                        : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-amber-400 border-transparent'
+                        }`}
+                      title="引用图片"
+                    >
+                      @
+                    </button>
+                    {isMentionMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setIsMentionMenuOpen(false)} />
+                        <div className="absolute bottom-full left-0 mb-1 bg-stone-900 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden min-w-[120px]">
+                          {state.image && (
+                            <button
+                              onClick={() => {
+                                const tag = '@原图';
+                                setAiInput(prev => prev.includes(tag) ? prev.replace(tag, '').trim() : (prev + ' ' + tag).trim());
+                                setIsMentionMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors ${aiInput.includes('@原图') ? 'text-orange-400' : 'text-stone-300'}`}
+                            >
+                              <Icons.Image size={14} />
+                              <span className="text-xs font-bold">原图</span>
+                              {aiInput.includes('@原图') && <Icons.Check size={12} className="ml-auto" />}
+                            </button>
+                          )}
+                          {state.generatedImage && (
+                            <button
+                              onClick={() => {
+                                const tag = '@生成图';
+                                setAiInput(prev => prev.includes(tag) ? prev.replace(tag, '').trim() : (prev + ' ' + tag).trim());
+                                setIsMentionMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors ${aiInput.includes('@生成图') ? 'text-emerald-400' : 'text-stone-300'}`}
+                            >
+                              <Icons.Image size={14} />
+                              <span className="text-xs font-bold">生成图</span>
+                              {aiInput.includes('@生成图') && <Icons.Check size={12} className="ml-auto" />}
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
               </div>
 

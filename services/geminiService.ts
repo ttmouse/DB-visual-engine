@@ -27,9 +27,35 @@ let modelConfig = {
   image: "gemini-3-pro-image-preview"
 };
 
-const isQuotaError = (error: any): boolean => {
+
+
+const translateErrorMessage = (error: any): string => {
   const msg = error?.toString() || "";
-  return msg.includes("429") || msg.includes("quota") || msg.includes("limit");
+
+  // Specific 400 error translation for invalid image format/base64 issues
+  if (msg.includes("400") || msg.includes("INVALID_ARGUMENT")) {
+    if (msg.includes("Image") || msg.includes("image") || msg.includes("format") || msg.includes("decode")) {
+      return "图片格式不被支持或数据损坏，请尝试更换图片 (400 Invalid Image)";
+    }
+    return "请求参数无效，通常是图片格式问题 (400 Bad Request)";
+  }
+
+  // Quota errors
+  if (msg.includes("429") || msg.includes("quota") || msg.includes("limit") || msg.includes("exhausted")) {
+    return "API 调用额度已耗尽 (429 Quota Exceeded)";
+  }
+
+  // Network errors
+  if (msg.includes("fetch") || msg.includes("network") || msg.includes("connection")) {
+    return "网络连接失败，请检查网络设置";
+  }
+
+  // 500 errors
+  if (msg.includes("500") || msg.includes("Internal")) {
+    return "服务器内部错误，请稍后重试 (500 Internal Error)";
+  }
+
+  return msg;
 };
 
 export const configureClient = (apiKey: string, baseUrl: string, mode: 'official' | 'custom' = 'custom') => {
@@ -113,7 +139,8 @@ export async function* streamAgentAnalysis(
   role: AgentRole,
   imageBase64: string,
   previousContext: string,
-  mimeType: string = "image/jpeg"
+  mimeType: string = "image/jpeg",
+  signal?: AbortSignal
 ) {
   const client = getClient();
   const agent = AGENTS[role];
@@ -143,13 +170,19 @@ export async function* streamAgentAnalysis(
     });
 
     for await (const chunk of response) {
+      if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
       const text = chunk.text;
       if (text) yield text;
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error.name === 'AbortError' || signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
     console.error(`Agent ${role} error:`, error);
-    if (isQuotaError(error)) yield `\n\n[⚠️ 配额限制]：请求过载。`;
-    else yield `\n\n[错误]：引擎在 ${role} 阶段异常 (${error})。`;
+
+    // Use the translator
+    const userMsg = translateErrorMessage(error);
+    yield `\n\n[错误]：${userMsg}`;
   }
 }
 
@@ -310,7 +343,13 @@ ${originalPrompt}
   }
 }
 
-export async function generateImageFromPrompt(promptContext: string, aspectRatio: string, refImage?: string | null, mimeType: string = "image/jpeg"): Promise<string | null> {
+export async function generateImageFromPrompt(
+  promptContext: string,
+  aspectRatio: string,
+  refImage?: string | null,
+  mimeType: string = "image/jpeg",
+  signal?: AbortSignal
+): Promise<string | null> {
   const client = getClient();
 
   // Parse aspect ratio from prompt text (user may have edited it)
@@ -355,6 +394,8 @@ export async function generateImageFromPrompt(promptContext: string, aspectRatio
   console.log(`[Image Gen] Detected ratio: ${detectedRatio}, Using model: ${modelId}`);
 
   try {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
     let response;
 
     if (refImage) {
@@ -399,7 +440,12 @@ export async function generateImageFromPrompt(promptContext: string, aspectRatio
     }
 
     return null;
-  } catch (error) {
+  } catch (error: any) {
+    // If it's a translated specific error, rethrow explicitly for UI to catch
+    if (error.status === 400 || error.toString().includes("400")) {
+      const userMsg = translateErrorMessage(error);
+      throw new Error(userMsg);
+    }
     console.error("Image gen error", error);
     throw error;
   }
@@ -408,10 +454,13 @@ export async function generateImageFromPrompt(promptContext: string, aspectRatio
 export async function executeReverseEngineering(
   imageBase64: string,
   mimeType: string = "image/jpeg",
-  promptScript: string = SINGLE_STEP_REVERSE_PROMPT
+  promptScript: string = SINGLE_STEP_REVERSE_PROMPT,
+  signal?: AbortSignal
 ): Promise<ReverseEngineeringResult | null> {
   const client = getClient();
   const modelId = modelConfig.reasoning;
+
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
   try {
     const cleanImage = imageBase64.replace(/^data:image\/\w+;base64,/, "");

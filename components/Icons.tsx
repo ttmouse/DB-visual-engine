@@ -46,7 +46,8 @@ import {
     Download,
     MessageSquare,
     ArrowUp,
-    Info
+    Info,
+    StopCircle
 } from 'lucide-react';
 
 export const Icons = {
@@ -96,5 +97,6 @@ export const Icons = {
     Download,
     MessageSquare,
     ArrowUp,
-    Info
+    Info,
+    StopCircle
 };
