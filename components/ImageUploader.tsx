@@ -178,9 +178,8 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, d
   return (
     <div
       className={`
-        relative group cursor-pointer transition-all duration-500
-        border-2 border-dashed rounded-xl flex-1 flex flex-col items-center justify-center
-        ${isDragging ? 'border-orange-500 bg-orange-900/20' : 'border-stone-700 hover:border-stone-500 bg-stone-950'}
+        relative group cursor-pointer transition-all duration-300 flex-1 flex items-center justify-center
+        ${isDragging ? 'bg-orange-900/10' : ''}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
       `}
       onClick={() => inputRef.current?.click()}
@@ -190,15 +189,23 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, d
     >
       <input type="file" ref={inputRef} onChange={handleChange} accept="image/*,video/*" className="hidden" disabled={disabled} />
 
-      <div className="w-16 h-16 rounded-full bg-stone-800 flex items-center justify-center text-stone-500 mb-4 group-hover:scale-110 group-hover:text-orange-500 transition-all duration-500">
-        <Icons.Upload size={28} />
-      </div>
-      <div className="text-center space-y-2 px-8">
-        <h3 className="text-base font-medium text-stone-300">拖入、点击或粘贴参考资产</h3>
-        <p className="text-xs text-stone-500 leading-relaxed">
-          支持高保真图像或 Sora 级短视频解析 (MAX 20MB)<br />
-          <span className="text-stone-600 mt-1 block">粘贴快捷键: Ctrl+V / Cmd+V</span>
-        </p>
+      <div className={`
+        flex flex-col items-center justify-center p-12 rounded-2xl transition-all duration-300
+        ${isDragging ? 'bg-orange-500/10 ring-2 ring-orange-500/50' : 'hover:bg-stone-800/50'}
+      `}>
+        <div className={`
+          w-20 h-20 rounded-2xl flex items-center justify-center mb-6 transition-all duration-300
+          ${isDragging ? 'bg-orange-500/20 text-orange-400 scale-110' : 'bg-stone-800/80 text-stone-500 group-hover:bg-stone-700 group-hover:text-orange-400 group-hover:scale-105'}
+        `}>
+          <Icons.Upload size={32} />
+        </div>
+        <div className="text-center space-y-3">
+          <h3 className="text-lg font-medium text-stone-200">拖入、点击或粘贴参考图片</h3>
+          <p className="text-sm text-stone-500 leading-relaxed max-w-xs">
+            支持高保真图像或 Sora 级短视频解析
+            <span className="block text-stone-600 text-xs mt-2">MAX 20MB · Ctrl+V / Cmd+V 粘贴</span>
+          </p>
+        </div>
       </div>
     </div>
   );

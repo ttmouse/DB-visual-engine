@@ -61,7 +61,7 @@ const INITIAL_STATE: AppState = {
 type TabType = AgentRole.AUDITOR | AgentRole.DESCRIPTOR | AgentRole.ARCHITECT | 'STUDIO';
 
 const App: React.FC = () => {
-  const [showLanding, setShowLanding] = useState(true);
+  const [showLanding, setShowLanding] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const [state, setState] = useState<AppState>(INITIAL_STATE);
   const [displayImage, setDisplayImage] = useState<string | null>(null);
@@ -1265,7 +1265,7 @@ const App: React.FC = () => {
                 });
               }}
               className="flex-1 w-full bg-stone-950 rounded-xl border border-stone-800 p-4 text-[12px] font-mono leading-relaxed focus:ring-2 focus:ring-stone-600 outline-none resize-none overflow-y-auto custom-scrollbar text-stone-200 placeholder:text-stone-600 relative z-20"
-              placeholder="正在等待提示词生成..."
+              placeholder="输入提示词，或上传图片逆向生成..."
               spellCheck={false}
             />
 
@@ -1290,93 +1290,122 @@ const App: React.FC = () => {
           <div className="p-4 border-t border-stone-800 flex-shrink-0 space-y-3">
             {/* Button Row */}
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setState(prev => ({ ...prev, useReferenceImage: !prev.useReferenceImage }))}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-xs font-bold flex-shrink-0 ${state.useReferenceImage ? 'bg-orange-900/30 text-orange-400' : 'bg-stone-800 text-stone-500 hover:text-stone-300'}`}
-                title="图生图参考"
-              >
-                <Icons.Image size={14} />
-                {state.useReferenceImage ? '参考' : '文生'}
-              </button>
-              <button
-                onClick={() => {
-                  if (reverseMode === 'quick') {
-                    handleQuickReverse();
-                  } else {
-                    const hasAuditorContent = state.results[AgentRole.AUDITOR]?.content?.trim();
-                    const hasDescriptorContent = state.results[AgentRole.DESCRIPTOR]?.content?.trim();
-                    const hasArchitectContent = state.results[AgentRole.ARCHITECT]?.content?.trim();
-
-                    if (!hasAuditorContent && !hasDescriptorContent && !hasArchitectContent) {
-                      if (state.image) {
-                        handleStartPipeline();
-                      } else {
-                        showToast('请先上传图片', 'error');
-                      }
-                    } else {
-                      handleRegenerateAgent(AgentRole.SYNTHESIZER);
-                    }
-                  }
-                }}
-                disabled={!state.image || state.isProcessing}
-                className="flex-1 py-2 bg-stone-800 text-stone-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-700 transition-all border border-stone-700"
-                title={reverseMode === 'quick' ? '快速单步逆向' : '完整4步分析'}
-              >
-                <Icons.Sparkles size={14} />
-                生成提示词
-              </button>
-              {/* 生成图片按钮组 - 带数量选择菜单 */}
-              <div className="relative flex-1 flex">
-                <button
-                  onClick={() => handleGenerateImage(undefined, generateCount)}
-                  disabled={state.isGeneratingImage || !state.editablePrompt}
-                  className="flex-1 py-2 bg-stone-100 text-black rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)]"
-                >
-                  {state.isGeneratingImage ? <Icons.RefreshCw size={14} className="animate-spin" /> : <Icons.Play size={14} />}
-                  生成{generateCount > 1 ? ` ${generateCount}张` : '图片'}
-                </button>
-                <button
-                  onClick={() => setIsGenerateMenuOpen(!isGenerateMenuOpen)}
-                  disabled={state.isGeneratingImage || !state.editablePrompt}
-                  className="px-2 py-2 bg-stone-100 text-black rounded-r-xl text-xs font-bold flex items-center justify-center disabled:opacity-40 hover:bg-white transition-all border-l border-stone-300"
-                >
-                  <Icons.ChevronDown size={12} className={`transition-transform ${isGenerateMenuOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {isGenerateMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsGenerateMenuOpen(false)} />
-                    <div className="absolute bottom-full left-0 right-0 mb-1 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden">
-                      {[1, 2, 4].map(num => (
-                        <div
-                          key={num}
-                          onClick={() => {
-                            setGenerateCount(num);
-                            setIsGenerateMenuOpen(false);
-                          }}
-                          className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${num === generateCount ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
-                        >
-                          {num === generateCount && <Icons.Check size={12} />}
-                          <span>生成 {num} 张</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
+              {/* Scrollable Tags Area */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar flex-shrink-0 max-w-[40%]">
+                {/* Reference Tags */}
+                {state.image && (
+                  <button
+                    onClick={() => {
+                      const tag = '@原图';
+                      setAiInput(prev => {
+                        if (prev.includes(tag)) {
+                          return prev.replace(tag, '').replace(/\s{2,}/g, ' ').trim();
+                        }
+                        return (prev + ' ' + tag).trim();
+                      });
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-xs font-bold flex-shrink-0 whitespace-nowrap border ${aiInput.includes('@原图')
+                      ? 'bg-orange-900/30 text-orange-400 border-orange-500/30'
+                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-orange-400 border-transparent'
+                      }`}
+                    title={aiInput.includes('@原图') ? "取消引用原图" : "引用原图"}
+                  >
+                    <Icons.Image size={14} />
+                    @原图
+                  </button>
+                )}
+                {state.generatedImage && (
+                  <button
+                    onClick={() => {
+                      const tag = '@生成图';
+                      setAiInput(prev => {
+                        if (prev.includes(tag)) {
+                          return prev.replace(tag, '').replace(/\s{2,}/g, ' ').trim();
+                        }
+                        return (prev + ' ' + tag).trim();
+                      });
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all text-xs font-bold flex-shrink-0 whitespace-nowrap border ${aiInput.includes('@生成图')
+                      ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/30'
+                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-emerald-400 border-transparent'
+                      }`}
+                    title={aiInput.includes('@生成图') ? "取消引用生成图" : "引用生成图"}
+                  >
+                    <Icons.Image size={14} />
+                    @生成图
+                  </button>
                 )}
               </div>
-              {/* Quality Check Button Hidden
-              <button
-                onClick={() => {
-                  handleChatSendMessage('帮我质检一下');
-                  setIsChatDrawerOpen(true);
-                }}
-                disabled={!state.image || !state.generatedImage || isChatProcessing}
-                className="px-3 py-2 bg-rose-900/20 hover:bg-rose-900/40 text-rose-400 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0"
-                title="质检"
-              >
-                <Icons.ScanEye size={14} />
-                质检
-              </button>
-              */}
+
+              {/* Main Actions Area (No overflow to allow dropdowns) */}
+              {/* Main Actions Area (No overflow to allow dropdowns) */}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <button
+                  onClick={() => {
+                    if (reverseMode === 'quick') {
+                      handleQuickReverse();
+                    } else {
+                      const hasAuditorContent = state.results[AgentRole.AUDITOR]?.content?.trim();
+                      const hasDescriptorContent = state.results[AgentRole.DESCRIPTOR]?.content?.trim();
+                      const hasArchitectContent = state.results[AgentRole.ARCHITECT]?.content?.trim();
+
+                      if (!hasAuditorContent && !hasDescriptorContent && !hasArchitectContent) {
+                        if (state.image) {
+                          handleStartPipeline();
+                        } else {
+                          showToast('请先上传图片', 'error');
+                        }
+                      } else {
+                        handleRegenerateAgent(AgentRole.SYNTHESIZER);
+                      }
+                    }
+                  }}
+                  disabled={!state.image || state.isProcessing}
+                  className="flex-1 py-2 bg-stone-800 text-stone-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-700 transition-all border border-stone-700 whitespace-nowrap px-3 min-w-fit"
+                  title={reverseMode === 'quick' ? '快速单步逆向' : '完整4步分析'}
+                >
+                  <Icons.Sparkles size={14} />
+                  逆向
+                </button>
+                {/* 生成图片按钮组 - 带数量选择菜单 */}
+                <div className="relative flex-1 flex min-w-fit">
+                  <button
+                    onClick={() => handleGenerateImage(undefined, generateCount)}
+                    disabled={state.isGeneratingImage || !state.editablePrompt}
+                    className="flex-1 px-3 py-2 bg-stone-100 text-black rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap"
+                  >
+                    {state.isGeneratingImage ? <Icons.RefreshCw size={14} className="animate-spin" /> : <Icons.Play size={14} />}
+                    生成{generateCount > 1 ? ` ${generateCount}` : ''}
+                  </button>
+                  <button
+                    onClick={() => setIsGenerateMenuOpen(!isGenerateMenuOpen)}
+                    disabled={state.isGeneratingImage || !state.editablePrompt}
+                    className="px-2 py-2 bg-stone-100 text-black rounded-r-xl text-xs font-bold flex items-center justify-center disabled:opacity-40 hover:bg-white transition-all border-l border-stone-300"
+                  >
+                    <Icons.ChevronDown size={12} className={`transition-transform ${isGenerateMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isGenerateMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsGenerateMenuOpen(false)} />
+                      <div className="absolute bottom-full left-0 right-0 mb-1 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden min-w-[120px]">
+                        {[1, 2, 4].map(num => (
+                          <div
+                            key={num}
+                            onClick={() => {
+                              setGenerateCount(num);
+                              setIsGenerateMenuOpen(false);
+                            }}
+                            className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${num === generateCount ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
+                          >
+                            {num === generateCount && <Icons.Check size={12} />}
+                            <span>生成 {num} 张</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
               <button
                 onClick={() => { navigator.clipboard.writeText(state.editablePrompt); showToast('已复制', 'success'); }}
                 disabled={!state.editablePrompt}
@@ -1723,7 +1752,7 @@ const App: React.FC = () => {
           </PanelHeader>
 
           <div
-            className={`flex-1 min-h-0 relative ${isDraggingNewImage ? 'ring-2 ring-orange-500 ring-inset' : ''}`}
+            className={`flex-1 min-h-0 relative flex flex-col ${isDraggingNewImage ? 'ring-2 ring-orange-500 ring-inset' : ''}`}
             onDragOver={(e) => {
               if (displayImage) {
                 e.preventDefault();
@@ -1887,10 +1916,10 @@ const App: React.FC = () => {
           </PanelHeader>
 
           <div className="flex-1 min-h-0 bg-stone-900 relative">
-            {!state.image ? (
+            {!state.image && activeTab !== 'STUDIO' ? (
               <div className="h-full flex flex-col items-center justify-center text-stone-700 space-y-4">
                 <Icons.Compass size={48} strokeWidth={1} className="animate-spin duration-10000 opacity-20" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-50">Visual Decoding Standby</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-50">请先上传图片以使用分析功能</p>
               </div>
             ) : renderTabContent()}
           </div>
