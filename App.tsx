@@ -1,4 +1,11 @@
 
+/**
+ * [INPUT]: 依赖 services (gemini/history/chat) 和 components (ChatPanel/ImageUploader/Results)
+ * [OUTPUT]: 导出 App 根组件，作为应用入口
+ * [POS]: Application 根容器，协调全局状态与路由
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ImageUploader } from './components/ImageUploader';
 import { AgentCard } from './components/AgentCard';

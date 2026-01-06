@@ -1,3 +1,10 @@
+/**
+ * [INPUT]: 依赖 Icons (components/Icons)
+ * [OUTPUT]: 导出 DOCUMENTATION_CATEGORIES 静态数据
+ * [POS]: Static Data Source for DocumentationModal
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
 import { Icons } from '../components/Icons';
 
 export interface DocArticle {

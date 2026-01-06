@@ -1,3 +1,10 @@
+/**
+ * [INPUT]: 依赖 documentationData, Icons, ReactMarkdown
+ * [OUTPUT]: 导出 DocumentationModal 组件
+ * [POS]: UI Component, 展示系统帮助文档
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
 import ReactMarkdown from 'react-markdown';

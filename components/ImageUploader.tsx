@@ -1,4 +1,11 @@
 
+/**
+ * [INPUT]: 依赖 Icons, utils/pngMetadata
+ * [OUTPUT]: 导出 ImageUploader 组件
+ * [POS]: UI Component, 核心交互入口，负责图片/视频输入处理
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Icons } from './Icons';
 import { extractPromptFromPng } from '../utils/pngMetadata';

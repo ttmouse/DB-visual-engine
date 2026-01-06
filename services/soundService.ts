@@ -1,4 +1,11 @@
 /**
+ * [INPUT]: 依赖 Web Audio API (Native)
+ * [OUTPUT]: 导出 soundService 单例
+ * [POS]: Services 核心模块，负责全局音效反馈
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
+/**
  * 音效管理服务
  * 使用 Web Audio API 生成简单音效，避免依赖外部文件
  */

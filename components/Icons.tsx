@@ -1,4 +1,11 @@
 
+/**
+ * [INPUT]: 依赖 lucide-react 图标库
+ * [OUTPUT]: 导出 Icons 对象，统一管理系统图标
+ * [POS]: UI Design System 基础组件
+ * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
+ */
+
 import {
     ShieldCheck,
     Eye,
