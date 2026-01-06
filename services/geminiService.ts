@@ -20,10 +20,11 @@ let ai: GoogleGenAI | null = null;
 let currentConfig = { apiKey: '', baseUrl: '', mode: 'custom' as 'official' | 'custom' };
 
 // Default Model Configuration
+// Updated to use stable models compatible with official API
 let modelConfig = {
-  reasoning: "gemini-3-pro-high",
-  fast: "gemini-3-flash",
-  image: "gemini-3-pro-image"
+  reasoning: "gemini-3-flash-preview",
+  fast: "gemini-3-flash-preview",
+  image: "gemini-3-pro-image-preview"
 };
 
 const isQuotaError = (error: any): boolean => {
@@ -74,6 +75,7 @@ const initModelsFromStorage = () => {
   const r = localStorage.getItem('berryxia_model_reasoning');
   const f = localStorage.getItem('berryxia_model_fast');
   const i = localStorage.getItem('berryxia_model_image');
+
   if (r || f || i) {
     configureModels({ reasoning: r || undefined, fast: f || undefined, image: i || undefined });
   }
@@ -87,9 +89,12 @@ initModelsFromStorage();
 
 const getClient = () => {
   if (!ai) {
-    const storedKey = localStorage.getItem('berryxia_api_key');
     const storedUrl = localStorage.getItem('berryxia_base_url');
     const storedMode = (localStorage.getItem('berryxia_api_mode') || 'custom') as 'official' | 'custom';
+    const storedKey = storedMode === 'official'
+      ? (localStorage.getItem('berryxia_api_key_official') || localStorage.getItem('berryxia_api_key'))
+      : (localStorage.getItem('berryxia_api_key_custom') || localStorage.getItem('berryxia_api_key'));
+
     if (storedKey) {
       configureClient(storedKey, storedUrl || '', storedMode);
     }
@@ -334,17 +339,18 @@ export async function generateImageFromPrompt(promptContext: string, aspectRatio
   const detectedRatio = parseAspectRatioFromPrompt(promptContext);
 
   // Select model variant based on aspect ratio
-  const baseModel = modelConfig.image; // e.g., "gemini-3-pro-image"
+  const baseModel = modelConfig.image || "imagen-3.0-generate-001";
   let modelId = baseModel;
 
-  if (detectedRatio === "16:9" || detectedRatio === "4:3") {
-    // Use 16x9 variant for wide formats
-    modelId = baseModel.includes("-4k") ? `${baseModel.replace("-4k", "")}-4k-16x9` : `${baseModel}-16x9`;
-  } else if (detectedRatio === "9:16" || detectedRatio === "3:4") {
-    // Use 9x16 variant for tall formats
-    modelId = baseModel.includes("-4k") ? `${baseModel.replace("-4k", "")}-4k-9x16` : `${baseModel}-9x16`;
+  // Custom proxy logic: Append suffixes for specific aspect ratios if needed
+  // Only apply this in 'custom' mode to avoid 404s on Official API
+  if (currentConfig.mode === 'custom') {
+    if (detectedRatio === "16:9" || detectedRatio === "4:3") {
+      modelId = baseModel.includes("-4k") ? `${baseModel.replace("-4k", "")}-4k-16x9` : `${baseModel}-16x9`;
+    } else if (detectedRatio === "9:16" || detectedRatio === "3:4") {
+      modelId = baseModel.includes("-4k") ? `${baseModel.replace("-4k", "")}-4k-9x16` : `${baseModel}-9x16`;
+    }
   }
-  // else: 1:1 uses base model
 
   console.log(`[Image Gen] Detected ratio: ${detectedRatio}, Using model: ${modelId}`);
 
@@ -370,8 +376,17 @@ export async function generateImageFromPrompt(promptContext: string, aspectRatio
     const text = response.text;
 
     // Check if it's a URL or base64. Reject strictly if it looks like Markdown/JSON.
-    if (text && (text.startsWith('http') || text.length > 200) && !text.trim().startsWith('```')) {
-      return text;
+    if (currentConfig.mode === 'official') {
+      // Official Mode: Strict URL check. Do NOT accept raw base64 or long text here.
+      // Google API usually puts images in inlineData, not text.
+      if (text && text.startsWith('http')) {
+        return text;
+      }
+    } else {
+      // Custom Mode: Relaxed check for proxy compatibility
+      if (text && (text.startsWith('http') || text.length > 200) && !text.trim().startsWith('```')) {
+        return text;
+      }
     }
 
     // Try to get inline data from candidates

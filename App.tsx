@@ -60,6 +60,14 @@ const INITIAL_STATE: AppState = {
 
 type TabType = AgentRole.AUDITOR | AgentRole.DESCRIPTOR | AgentRole.ARCHITECT | 'STUDIO';
 
+// Helper to determine image source (Base64 or URL)
+const getImageSrc = (data: string | null | undefined, mimeType: string = 'image/png') => {
+  if (!data) return '';
+  if (data.startsWith('http')) return data;
+  if (data.startsWith('data:')) return data;
+  return `data:${mimeType};base64,${data}`;
+};
+
 const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState(false);
   const [hasKey, setHasKey] = useState(false);
@@ -68,14 +76,34 @@ const App: React.FC = () => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('STUDIO');
 
+  /* Existing state declarations */
+  // ...
+  const [apiMode, setApiMode] = useState<'official' | 'custom'>('custom');
+  const [activeModelName, setActiveModelName] = useState('Gemini 2.0 Flash'); // Default display
+
   // Consolidate initialization logic
   useEffect(() => {
     const init = async () => {
+      // Load API Mode
+      const storedMode = (localStorage.getItem('berryxia_api_mode') || 'custom') as 'official' | 'custom';
+      setApiMode(storedMode);
+
+      // Load specific model name for display (prefer 'fast' model as it's used for chat)
+      const storedFastModel = localStorage.getItem('berryxia_model_fast');
+      if (storedFastModel) setActiveModelName(storedFastModel);
+
       // Check for environment variable injection
       const envKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
       if (envKey && envKey.length > 10) {
         setHasKey(true);
       }
+
+      // Check localStorage for key presence to update indicator color
+      const storedKey = storedMode === 'official'
+        ? (localStorage.getItem('berryxia_api_key_official') || localStorage.getItem('berryxia_api_key'))
+        : (localStorage.getItem('berryxia_api_key_custom') || localStorage.getItem('berryxia_api_key'));
+
+      if (storedKey) setHasKey(true);
 
       try {
         const [hist, cached] = await Promise.all([
@@ -315,7 +343,7 @@ const App: React.FC = () => {
     setSelectedHistoryIndex(index);
 
     // 3. Restore state
-    setDisplayImage(`data:${historyItem.mimeType || 'image/png'};base64,${historyItem.originalImage}`);
+    setDisplayImage(getImageSrc(historyItem.originalImage, historyItem.mimeType));
     setState(prev => ({
       ...prev,
       editablePrompt: historyItem.prompt,
@@ -351,7 +379,7 @@ const App: React.FC = () => {
               // For comparison mode, keep the current mode but update the index
               // The image will be updated via selectedHistoryIndex
             } else {
-              setFullscreenImg(`data:image/png;base64,${state.generatedImages[newIndex]}`);
+              setFullscreenImg(getImageSrc(state.generatedImages[newIndex]));
             }
           }
         }
@@ -365,7 +393,7 @@ const App: React.FC = () => {
               // For comparison mode, keep the current mode but update the index
               // The image will be updated via selectedHistoryIndex
             } else {
-              setFullscreenImg(`data:image/png;base64,${state.generatedImages[newIndex]}`);
+              setFullscreenImg(getImageSrc(state.generatedImages[newIndex]));
             }
           }
         }
@@ -1518,7 +1546,7 @@ const App: React.FC = () => {
                   </label>
 
                   {/* Model Info */}
-                  <span className="text-[10px] text-stone-500 font-medium">Gemini 2.0 Flash</span>
+                  <span className="text-[10px] text-stone-500 font-medium">{activeModelName}</span>
                 </div>
 
                 {/* Right: Action Buttons */}
@@ -1663,7 +1691,7 @@ const App: React.FC = () => {
               <div className="flex-1 h-full flex flex-col items-center justify-center">
                 <div className="text-white/50 text-sm mb-4 font-medium">GENERATED</div>
                 <img
-                  src={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
+                  src={getImageSrc(state.generatedImages[state.selectedHistoryIndex])}
                   alt="Generated"
                   className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg cursor-default"
                   onClick={(e) => e.stopPropagation()}
@@ -1711,6 +1739,11 @@ const App: React.FC = () => {
             {soundEnabled ? <Icons.Volume2 size={20} /> : <Icons.VolumeX size={20} />}
           </button>
           <div className="w-px h-6 bg-stone-800 mx-1" />
+          <div className="flex items-center gap-2 mr-2">
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${apiMode === 'official' ? 'border-orange-500/30 text-orange-500' : 'border-blue-500/30 text-blue-500'}`}>
+              {apiMode === 'official' ? 'OFFICIAL' : 'CUSTOM'}
+            </span>
+          </div>
           <button onClick={handleSelectKey} className={`p-2.5 rounded-full hover:bg-stone-800 ${hasKey ? 'text-emerald-500' : 'text-stone-500'}`} title="API Key 状态"><Icons.Key size={20} /></button>
         </div>
       </nav>
@@ -1832,7 +1865,7 @@ const App: React.FC = () => {
                   isComparisonMode ? (
                     <ImageComparisonSlider
                       beforeImage={displayImage}
-                      afterImage={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
+                      afterImage={getImageSrc(state.generatedImages[state.selectedHistoryIndex])}
                       className="w-full h-full border-0 rounded-none bg-stone-950/50"
                       layoutData={state.layoutData}
                       isAnalyzingLayout={state.isAnalyzingLayout}
@@ -1842,12 +1875,12 @@ const App: React.FC = () => {
                     />
                   ) : (
                     <ImageViewer
-                      src={`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`}
+                      src={getImageSrc(state.generatedImages[state.selectedHistoryIndex])}
                       alt="Generated Result"
                       className="w-full h-full border-0 rounded-none bg-stone-950/50"
                       layoutData={state.layoutData}
                       isAnalyzingLayout={state.isAnalyzingLayout}
-                      onFullscreen={() => setFullscreenImg(`data:image/png;base64,${state.generatedImages[state.selectedHistoryIndex]}`)}
+                      onFullscreen={() => setFullscreenImg(getImageSrc(state.generatedImages[state.selectedHistoryIndex]))}
                       zoom={imageZoom}
                       onZoomChange={handleZoomChange}
                     />
@@ -1967,7 +2000,7 @@ const App: React.FC = () => {
                         }));
                         setActiveTab('STUDIO');
                         if (item.generatedImage) {
-                          setFullscreenImg(`data:image/png;base64,${item.generatedImage}`);
+                          setFullscreenImg(getImageSrc(item.generatedImage));
                         }
                       }}
                     >
@@ -1975,7 +2008,7 @@ const App: React.FC = () => {
                       <div className="flex gap-2">
                         <div className="w-12 h-12 rounded-lg overflow-hidden border border-stone-700 flex-shrink-0">
                           <img
-                            src={`data:${item.mimeType || 'image/png'};base64,${item.originalImage}`}
+                            src={getImageSrc(item.originalImage, item.mimeType)}
                             alt="Original"
                             className="w-full h-full object-cover"
                           />
@@ -1986,7 +2019,7 @@ const App: React.FC = () => {
                         <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-orange-900/50 flex-shrink-0">
                           {item.generatedImage ? (
                             <img
-                              src={`data:image/png;base64,${item.generatedImage}`}
+                              src={getImageSrc(item.generatedImage)}
                               alt="Generated"
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                             />

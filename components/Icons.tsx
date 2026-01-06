@@ -45,7 +45,8 @@ import {
     ArrowLeftRight,
     Download,
     MessageSquare,
-    ArrowUp
+    ArrowUp,
+    Info
 } from 'lucide-react';
 
 export const Icons = {
@@ -94,5 +95,6 @@ export const Icons = {
     ArrowLeftRight,
     Download,
     MessageSquare,
-    ArrowUp
+    ArrowUp,
+    Info
 };
