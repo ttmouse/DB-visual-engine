@@ -117,7 +117,9 @@ export type I18nKey =
   | 'common.close'
   | 'common.save'
   | 'common.delete'
-  | 'common.download';
+  | 'common.download'
+  | 'gallery.title'
+  | 'gallery.keyboardHint';
 
 export const translations: Record<Language, Record<I18nKey, string>> = {
   CN: {
@@ -223,7 +225,7 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'landing.footer': '© 2024 UnImage. Powered by Google Gemini 2.5 & 3 Pro.',
     'docs.title': '文档中心',
     'docs.subtitle': 'Documentation Center',
-    'docs.version': 'v2.6.0',
+    'docs.version': 'v2.7.0',
     'agent.auditor': '场景鉴别与资产分类',
     'agent.descriptor': '微观材质与细节扫描',
     'agent.architect': '空间构成与光影解构',
@@ -237,7 +239,9 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'common.close': '关闭',
     'common.save': '保存',
     'common.delete': '删除',
-    'common.download': '下载'
+    'common.download': '下载',
+    'gallery.title': '相册',
+    'gallery.keyboardHint': '← → ↑ ↓ 选择 · 空格 打开 · Enter 编辑 · ESC 关闭'
   },
 
   EN: {
@@ -343,7 +347,7 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'landing.footer': '© 2024 UnImage. Powered by Google Gemini 2.5 & 3 Pro.',
     'docs.title': 'Documentation',
     'docs.subtitle': 'Documentation Center',
-    'docs.version': 'v2.6.0',
+    'docs.version': 'v2.7.0',
     'agent.auditor': 'Scene Classification & Asset Auditing',
     'agent.descriptor': 'Micro Texture & Detail Scanning',
     'agent.architect': 'Spatial Composition & Lighting Deconstruction',
@@ -357,7 +361,9 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'common.close': 'Close',
     'common.save': 'Save',
     'common.delete': 'Delete',
-    'common.download': 'Download'
+    'common.download': 'Download',
+    'gallery.title': 'Gallery',
+    'gallery.keyboardHint': '← → ↑ ↓ Navigate · Space Open · Enter Edit · ESC Close'
   }
 };
 

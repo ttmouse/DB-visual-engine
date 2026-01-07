@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Icons } from './Icons';
 import { HistoryItem } from '../types';
+import { useI18n } from '../hooks/useI18n';
 
 interface GalleryModalProps {
     isOpen: boolean;
@@ -42,6 +43,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
     onDownload,
     onEdit
 }) => {
+    const { t } = useI18n();
     const [focusedIndex, setFocusedIndex] = useState<number>(0); // Grid 焦点
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null); // 大图模式
     const [fullImage, setFullImage] = useState<string | null>(null);
@@ -276,6 +278,12 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                     setSelectedIndex(closestIndex);
                     setFocusedIndex(closestIndex);
                 }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (onEdit) {
+                    onEdit(selectedIndex);
+                }
             } else if (e.key === 'Escape' || e.key === ' ') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
@@ -308,6 +316,15 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                 e.preventDefault();
                 e.stopImmediatePropagation();
                 setSelectedIndex(currentFocused);
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (onEdit) {
+                    onEdit(currentFocused);
+                }
                 return;
             }
 
@@ -520,10 +537,10 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                         <Icons.LayoutGrid size={18} className="text-stone-400" />
-                        <span className="text-sm font-medium text-stone-200">相册</span>
+                        <span className="text-sm font-medium text-stone-200">{t('gallery.title')}</span>
                         <span className="text-xs text-stone-500">({images.length})</span>
                     </div>
-                    <span className="text-[10px] text-stone-600 font-mono">← → ↑ ↓ 选择 · 空格 打开 · ESC 关闭</span>
+                    <span className="text-[10px] text-stone-600 font-mono">{t('gallery.keyboardHint')}</span>
                 </div>
                 <button
                     onClick={onClose}

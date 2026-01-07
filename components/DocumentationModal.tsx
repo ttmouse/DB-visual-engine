@@ -9,7 +9,8 @@ import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
 import { useI18n } from '../hooks/useI18n';
 import ReactMarkdown from 'react-markdown';
-import { DOCUMENTATION_CATEGORIES, DocArticle } from '../services/documentationData';
+import remarkGfm from 'remark-gfm';
+import { DOCUMENTATION_CATEGORIES, DocArticle, getLocalizedDocContent, getLocalizedCategoryTitle } from '../services/documentationData';
 
 interface DocumentationModalProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ interface DocumentationModalProps {
 }
 
 export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose }) => {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [activeArticleId, setActiveArticleId] = useState<string>('changelog');
 
   // Reset to changelog when opened
@@ -26,6 +27,18 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
       setActiveArticleId('changelog');
     }
   }, [isOpen]);
+
+  // ESC key to close
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -37,6 +50,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
   const renderSidebarItem = (article: DocArticle) => {
     const isActive = activeArticleId === article.id;
     const Icon = Icons[article.icon];
+    const localizedArticle = getLocalizedDocContent(article, language);
 
     return (
       <button
@@ -55,7 +69,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
         <div className={`p-1.5 rounded-lg transition-colors relative z-10 ${isActive ? 'bg-white/20' : 'bg-stone-800 group-hover:bg-stone-700'}`}>
           <Icon size={14} />
         </div>
-        <span className="relative z-10">{article.title.replace(/[\u{1F300}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '')}</span>
+        <span className="relative z-10">{localizedArticle.title}</span>
       </button>
     );
   };
@@ -85,7 +99,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
                 <div key={idx}>
                   <h4 className="px-3 text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                     <span className="w-1 h-1 rounded-full bg-stone-600"></span>
-                    {category.title.split('(')[0]}
+                    {getLocalizedCategoryTitle(category, language)}
                   </h4>
                   <div className="space-y-1">
                     {category.articles.map(renderSidebarItem)}
@@ -112,7 +126,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
           <div className="h-24 shrink-0 border-b border-stone-800/50 flex items-center justify-between px-10 bg-stone-950/50 backdrop-blur-md sticky top-0 z-20">
             <div>
               <h2 className="text-3xl font-bold text-stone-100 flex items-center gap-3 tracking-tight">
-                {currentArticle?.title.replace(/[\u{1F300}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}]/gu, '')}
+                {currentArticle ? getLocalizedDocContent(currentArticle, language).title : ''}
               </h2>
               <div className="flex items-center gap-2 mt-2 text-stone-500 text-xs font-mono">
                 <span className="bg-stone-800/50 px-2 py-0.5 rounded text-stone-400">DOCS</span>
@@ -149,11 +163,12 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
                 prose-ul:my-3 prose-ul:list-none prose-ul:pl-0
                 prose-li:text-stone-400 prose-li:my-1.5 prose-li:leading-6 prose-li:pl-0 prose-li:text-sm
 
-                prose-hr:border-stone-700/50 prose-hr:my-6
+                prose-hr:hidden
 
                 prose-img:rounded-lg prose-img:border prose-img:border-stone-700 prose-img:my-4
               ">
                 <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
                   components={{
                     // Simplified blockquote
                     blockquote: ({ node, ...props }) => (
@@ -181,10 +196,31 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
                       <h2 className="text-lg font-semibold text-stone-100 mt-8 mb-4 pb-2 border-b border-stone-700/30">
                         {props.children}
                       </h2>
+                    ),
+                    // Table styling
+                    table: ({ node, ...props }) => (
+                      <table className="w-full my-4 border-collapse text-sm">
+                        {props.children}
+                      </table>
+                    ),
+                    thead: ({ node, ...props }) => (
+                      <thead className="bg-stone-800/50">
+                        {props.children}
+                      </thead>
+                    ),
+                    th: ({ node, ...props }) => (
+                      <th className="text-left px-3 py-2 text-stone-300 font-semibold border-b border-stone-700">
+                        {props.children}
+                      </th>
+                    ),
+                    td: ({ node, ...props }) => (
+                      <td className="px-3 py-2 text-stone-400 border-b border-stone-800">
+                        {props.children}
+                      </td>
                     )
                   }}
                 >
-                  {currentArticle?.content || '# Article Not Found'}
+                  {currentArticle ? getLocalizedDocContent(currentArticle, language).content : '# Article Not Found'}
                 </ReactMarkdown>
               </div>
 

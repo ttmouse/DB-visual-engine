@@ -463,6 +463,43 @@ const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [showProgressView]);
 
+  // Global Keyboard Shortcuts (G, H, N, C, A, P)
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      // Skip if in input/textarea
+      if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      // Skip if any modal is open
+      if (isGalleryOpen || isHelpOpen || isKeyModalOpen || fullscreenImg) return;
+
+      const key = e.key.toLowerCase();
+
+      if (key === 'g') {
+        e.preventDefault();
+        setIsGalleryOpen(true);
+      } else if (key === 'h') {
+        e.preventDefault();
+        setIsHelpOpen(true);
+      } else if (key === 'n') {
+        e.preventDefault();
+        handleReset();
+      } else if (key === 'c') {
+        e.preventDefault();
+        setIsComparisonMode(prev => !prev);
+      } else if (key === 'a') {
+        e.preventDefault();
+        // Focus the file input for reference image
+        const fileInput = document.getElementById('reference-image-input') as HTMLInputElement;
+        fileInput?.click();
+      } else if (key === 'p') {
+        e.preventDefault();
+        setIsPromptLabOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
+  }, [isGalleryOpen, isHelpOpen, isKeyModalOpen, fullscreenImg]);
+
   const showToast = (message: string, type: ToastType = 'info') => {
     const id = Date.now().toString();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -1819,6 +1856,46 @@ const App: React.FC = () => {
       <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
       <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
 
+      {/* Hidden file input for A shortcut (add reference image) */}
+      <input
+        type="file"
+        id="reference-image-input"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            Promise.all(Array.from(files).filter(f => f.type.startsWith('image/')).map(file =>
+              new Promise<ReferenceImage>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  const image = new Image();
+                  image.onload = () => {
+                    const ratio = image.naturalWidth / image.naturalHeight;
+                    resolve({
+                      id: crypto.randomUUID(),
+                      url: ev.target?.result as string,
+                      name: file.name,
+                      mimeType: file.type,
+                      aspectRatio: ratio >= 1.7 ? '16:9' : ratio <= 0.6 ? '9:16' : ratio >= 1.3 ? '4:3' : ratio <= 0.8 ? '3:4' : '1:1'
+                    });
+                  };
+                  image.src = ev.target?.result as string;
+                };
+                reader.readAsDataURL(file);
+              })
+            )).then(newImages => {
+              setState(prev => ({
+                ...prev,
+                referenceImages: [...prev.referenceImages, ...newImages]
+              }));
+            });
+          }
+          e.target.value = ''; // Reset for subsequent uploads
+        }}
+      />
+
       <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
       <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
       <GalleryModal
@@ -1827,10 +1904,6 @@ const App: React.FC = () => {
         images={state.generatedImages}
         history={state.history}
         prompts={state.history.map(h => h.prompt)}
-        onSelectImage={(idx) => {
-          loadHistoryItem(idx);
-          setIsGalleryOpen(false);
-        }}
         onDownload={handleDownloadHD}
         onEdit={handleGalleryEdit}
       />
