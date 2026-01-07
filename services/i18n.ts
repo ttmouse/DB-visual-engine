@@ -29,6 +29,8 @@ export type I18nKey =
   | 'studio.aiInput.analyzing'
   | 'studio.translateToCN'
   | 'studio.translateToEN'
+  | 'studio.mention.original'
+  | 'studio.mention.generated'
   | 'reverse.quick.title'
   | 'reverse.full.title'
   | 'toast.operationStopped'
@@ -148,6 +150,8 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'studio.aiInput.analyzing': '正在分析差异...',
     'studio.translateToCN': '翻译成中文',
     'studio.translateToEN': '翻译成英文',
+    'studio.mention.original': '原图',
+    'studio.mention.generated': '生成图',
     'reverse.quick.title': '快速单步逆向',
     'reverse.full.title': '完整4步分析',
     'toast.operationStopped': '操作已终止',
@@ -266,6 +270,8 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'studio.aiInput.analyzing': 'Analyzing differences...',
     'studio.translateToCN': 'Translate to Chinese',
     'studio.translateToEN': 'Translate to English',
+    'studio.mention.original': 'Original Image',
+    'studio.mention.generated': 'Generated Image',
     'reverse.quick.title': 'Quick Single-Step Reverse',
     'reverse.full.title': 'Full 4-Step Analysis',
     'toast.operationStopped': 'Operation stopped',

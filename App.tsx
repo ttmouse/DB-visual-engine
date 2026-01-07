@@ -1454,20 +1454,20 @@ const App: React.FC = () => {
                               handleTranslatePrompt('CN');
                               setIsMentionMenuOpen(false);
                             }}
-                            className="w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors text-stone-300"
+                            className="w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors text-stone-300 whitespace-nowrap"
                           >
                             <Icons.Languages size={14} />
-                            <span className="text-xs font-bold">{t('studio.translateToCN')}</span>
+                            <span className="text-xs">{t('studio.translateToCN')}</span>
                           </button>
                           <button
                             onClick={() => {
                               handleTranslatePrompt('EN');
                               setIsMentionMenuOpen(false);
                             }}
-                            className="w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors text-stone-300"
+                            className="w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors text-stone-300 whitespace-nowrap"
                           >
                             <Icons.Languages size={14} />
-                            <span className="text-xs font-bold">{t('studio.translateToEN')}</span>
+                            <span className="text-xs">{t('studio.translateToEN')}</span>
                           </button>
                           <div className="h-px bg-stone-800 my-1 mx-2" />
                           {state.image && (
@@ -1477,10 +1477,10 @@ const App: React.FC = () => {
                                 setAiInput(prev => prev.includes(tag) ? prev.replace(tag, '').trim() : (prev + ' ' + tag).trim());
                                 setIsMentionMenuOpen(false);
                               }}
-                              className={`w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors ${aiInput.includes('@原图') ? 'text-orange-400' : 'text-stone-300'}`}
+                              className={`w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors whitespace-nowrap ${aiInput.includes('@原图') ? 'text-orange-400' : 'text-stone-300'}`}
                             >
                               <Icons.Image size={14} />
-                              <span className="text-xs font-bold">原图</span>
+                              <span className="text-xs">{t('studio.mention.original')}</span>
                               {aiInput.includes('@原图') && <Icons.Check size={12} className="ml-auto" />}
                             </button>
                           )}
@@ -1491,10 +1491,10 @@ const App: React.FC = () => {
                                 setAiInput(prev => prev.includes(tag) ? prev.replace(tag, '').trim() : (prev + ' ' + tag).trim());
                                 setIsMentionMenuOpen(false);
                               }}
-                              className={`w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors ${aiInput.includes('@生成图') ? 'text-emerald-400' : 'text-stone-300'}`}
+                              className={`w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors whitespace-nowrap ${aiInput.includes('@生成图') ? 'text-emerald-400' : 'text-stone-300'}`}
                             >
                               <Icons.Image size={14} />
-                              <span className="text-xs font-bold">生成图</span>
+                              <span className="text-xs">{t('studio.mention.generated')}</span>
                               {aiInput.includes('@生成图') && <Icons.Check size={12} className="ml-auto" />}
                             </button>
                           )}
