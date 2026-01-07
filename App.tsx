@@ -1768,6 +1768,54 @@ const App: React.FC = () => {
                       setIsChatDrawerOpen(true);
                     }
                   }}
+                  onPaste={(e) => {
+                    const items = e.clipboardData?.items;
+                    if (!items) return;
+
+                    const imageItems = Array.from(items).filter(item => item.type.startsWith('image/'));
+                    if (imageItems.length === 0) return;
+
+                    e.preventDefault(); // Prevent pasting the image as text
+
+                    imageItems.forEach(item => {
+                      const file = item.getAsFile();
+                      if (!file) return;
+
+                      const reader = new FileReader();
+                      reader.onload = (ev) => {
+                        const result = ev.target?.result as string;
+                        const mimeType = file.type || 'image/png';
+                        const img = new Image();
+                        img.onload = () => {
+                          const ratio = img.width / img.height;
+                          const ratios = [
+                            { id: "1:1", value: 1.0 },
+                            { id: "3:4", value: 0.75 },
+                            { id: "4:3", value: 1.333 },
+                            { id: "9:16", value: 0.5625 },
+                            { id: "16:9", value: 1.777 }
+                          ];
+                          const closest = ratios.reduce((prev, curr) =>
+                            Math.abs(curr.value - ratio) < Math.abs(prev.value - ratio) ? curr : prev
+                          );
+                          const newRef: ReferenceImage = {
+                            id: `ref-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                            url: result,
+                            name: file.name || 'pasted-image.png',
+                            mimeType: mimeType,
+                            aspectRatio: closest.id
+                          };
+                          setState(prev => ({
+                            ...prev,
+                            referenceImages: [...prev.referenceImages, newRef]
+                          }));
+                          showToast(t('toast.imageAddedToReference'), 'success');
+                        };
+                        img.src = result;
+                      };
+                      reader.readAsDataURL(file);
+                    });
+                  }}
                   placeholder={isAnalyzing ? "正在分析差异..." : "输入 AI 指令..."}
                   className={`w-full bg-transparent border-none text-sm outline-none text-stone-200 placeholder:text-stone-500 resize-none min-h-[20px] max-h-[100px] leading-snug ${isAnalyzing ? 'placeholder:animate-pulse' : ''}`}
                   disabled={isChatProcessing || isAnalyzing}
