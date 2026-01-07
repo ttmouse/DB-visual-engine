@@ -84,6 +84,24 @@ export const deleteHistoryItemById = async (id: string): Promise<void> => {
   }
 };
 
+// Get a single history item by ID (for on-demand original loading)
+export const getHistoryItemById = async (id: string): Promise<HistoryItem | null> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get(id);
+
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error("IDB Get Error:", e);
+    return null;
+  }
+};
+
 // Optional: Clear old localStorage data to free up space
 export const clearLegacyStorage = () => {
   try {

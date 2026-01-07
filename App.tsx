@@ -21,6 +21,7 @@ import { saveHistoryItem, getHistory, deleteHistoryItemById } from './services/h
 import { detectSkillIntent, createUserMessage, createAssistantMessage, createSkillResultMessage, executeQualityCheck, executeRefineSkill, executeReverseSkill } from './services/chatService';
 import { promptManager, PromptVersion } from './services/promptManager';
 import { saveCurrentTask, loadCurrentTask, clearCurrentTask } from './services/cacheService';
+import { runLazyMigration } from './services/migrationService';
 import { soundService } from './services/soundService';
 import { usePipelineProgress } from './hooks/usePipelineProgress';
 import { PipelineProgressView } from './components/PipelineProgressView';
@@ -36,6 +37,7 @@ import { PromptLabModal } from './components/PromptLabModal';
 import { GalleryModal } from './components/GalleryModal';
 import ReactMarkdown from 'react-markdown';
 import { extractPromptFromPng, embedPromptInPng } from './utils/pngMetadata';
+import { generateThumbnail } from './utils/thumbnailUtils';
 
 const INITIAL_RESULTS = {
   [AgentRole.AUDITOR]: { role: AgentRole.AUDITOR, content: '', isStreaming: false, isComplete: false },
@@ -75,6 +77,13 @@ const getImageSrc = (data: string | null | undefined, mimeType: string = 'image/
   if (data.startsWith('http')) return data;
   if (data.startsWith('data:')) return data;
   return `data:${mimeType};base64,${data}`;
+};
+
+// Helper to get original (full res) image from history by index
+const getOriginalFromHistory = (history: HistoryItem[], index: number): string => {
+  const item = history[index];
+  if (!item?.generatedImage) return '';
+  return getImageSrc(item.generatedImage, item.mimeType || 'image/png');
 };
 
 const App: React.FC = () => {
@@ -126,10 +135,10 @@ const App: React.FC = () => {
         let mergedState: Partial<AppState> = { history: hist };
 
         if (cached) {
-          // Rebuild generated images from history if needed
+          // Rebuild generated images from history: prefer thumbnails for gallery
           const imagesFromHistory = hist
             .filter(item => item.generatedImage)
-            .map(item => item.generatedImage as string);
+            .map(item => item.generatedImageThumb || item.generatedImage as string);
 
           generatedImages = imagesFromHistory.length > 0 ? imagesFromHistory : cached.generatedImages;
 
@@ -157,10 +166,10 @@ const App: React.FC = () => {
           // Fallback if no cache but history exists
           if (hist.length > 0) {
             mergedState.generatedImage = hist[0].generatedImage;
-            // generatedImages can be rebuilt from history even without cache
+            // generatedImages: prefer thumbnails for memory efficiency
             const imagesFromHistory = hist
               .filter(item => item.generatedImage)
-              .map(item => item.generatedImage as string);
+              .map(item => item.generatedImageThumb || item.generatedImage as string);
             mergedState.generatedImages = imagesFromHistory;
           }
         }
@@ -170,6 +179,9 @@ const App: React.FC = () => {
         }
 
         setState(prev => ({ ...prev, ...mergedState }));
+
+        // Run lazy thumbnail migration for old history items (non-blocking)
+        runLazyMigration().catch(e => console.warn('[Migration] Failed:', e));
 
       } catch (e) {
         console.error("Initialization failed", e);
@@ -405,12 +417,12 @@ const App: React.FC = () => {
         if (newIndex !== state.selectedHistoryIndex) {
           loadHistoryItem(newIndex);
           // Update fullscreen image if in fullscreen mode
-          if (fullscreenImg && state.generatedImages[newIndex]) {
+          if (fullscreenImg && state.history[newIndex]) {
             if (isFullscreenComparison) {
               // For comparison mode, keep the current mode but update the index
               // The image will be updated via selectedHistoryIndex
             } else {
-              setFullscreenImg(getImageSrc(state.generatedImages[newIndex]));
+              setFullscreenImg(getOriginalFromHistory(state.history, newIndex));
             }
           }
         }
@@ -419,12 +431,12 @@ const App: React.FC = () => {
         if (newIndex !== state.selectedHistoryIndex) {
           loadHistoryItem(newIndex);
           // Update fullscreen image if in fullscreen mode
-          if (fullscreenImg && state.generatedImages[newIndex]) {
+          if (fullscreenImg && state.history[newIndex]) {
             if (isFullscreenComparison) {
               // For comparison mode, keep the current mode but update the index
               // The image will be updated via selectedHistoryIndex
             } else {
-              setFullscreenImg(getImageSrc(state.generatedImages[newIndex]));
+              setFullscreenImg(getOriginalFromHistory(state.history, newIndex));
             }
           }
         }
@@ -879,6 +891,14 @@ const App: React.FC = () => {
           const img = await generateImageFromPrompt(p, detectedRatio, refImage, targetMimeType);
 
           if (img) {
+            // Generate thumbnail for gallery (lightweight)
+            let thumbBase64: string | undefined;
+            try {
+              thumbBase64 = await generateThumbnail(img, 'image/png');
+            } catch (thumbErr) {
+              console.warn('Thumbnail generation failed, using original:', thumbErr);
+            }
+
             const newItem: HistoryItem = {
               id: (Date.now() + i).toString(),
               timestamp: Date.now() + i,
@@ -886,16 +906,18 @@ const App: React.FC = () => {
               mimeType: state.mimeType,
               prompt: p,
               generatedImage: img,
+              generatedImageThumb: thumbBase64,
               referenceImages: state.referenceImages?.length ? [...state.referenceImages] : undefined
             };
             await saveHistoryItem(newItem);
             successCount++;
 
-            // Update state immediately for each successful generation
+            // Update state: use thumbnail for generatedImages array (gallery)
+            const imageForGallery = thumbBase64 || img;
             setState(prev => ({
               ...prev,
-              generatedImage: img,
-              generatedImages: [img, ...prev.generatedImages],
+              generatedImage: img, // Full image for current editing
+              generatedImages: [imageForGallery, ...prev.generatedImages], // Thumbs for gallery
               history: [newItem, ...prev.history],
               selectedHistoryIndex: 0
             }));
@@ -979,8 +1001,14 @@ const App: React.FC = () => {
 
   // Handler to download original image
   const handleDownloadHD = async (index: number) => {
-    let imageBase64 = state.generatedImages[index];
-    if (!imageBase64) return;
+    // Get original image from history (not from generatedImages which now contains thumbnails)
+    const historyItem = state.history[index];
+    if (!historyItem?.generatedImage) {
+      showToast('无法获取原图', 'error');
+      return;
+    }
+
+    let imageBase64 = historyItem.generatedImage;
 
     // Convert to PNG if it's a JPEG (starts with /9j/ in base64)
     if (imageBase64.startsWith('/9j/')) {
@@ -1006,7 +1034,6 @@ const App: React.FC = () => {
     }
 
     // Get prompt from history item or current editable prompt
-    const historyItem = state.history[index];
     const prompt = historyItem?.prompt || state.editablePrompt;
 
     // Embed prompt in PNG metadata for SD/Eagle compatibility
@@ -1760,6 +1787,7 @@ const App: React.FC = () => {
         isOpen={isGalleryOpen}
         onClose={() => setIsGalleryOpen(false)}
         images={state.generatedImages}
+        history={state.history}
         prompts={state.history.map(h => h.prompt)}
         onSelectImage={(idx) => {
           loadHistoryItem(idx);
@@ -1793,7 +1821,7 @@ const App: React.FC = () => {
               <div className="flex-1 h-full flex flex-col items-center justify-center">
                 <div className="text-white/50 text-sm mb-4 font-medium">GENERATED</div>
                 <img
-                  src={getImageSrc(state.generatedImages[state.selectedHistoryIndex])}
+                  src={getOriginalFromHistory(state.history, state.selectedHistoryIndex)}
                   alt="Generated"
                   className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg cursor-default"
                   onClick={(e) => e.stopPropagation()}
@@ -1971,7 +1999,7 @@ const App: React.FC = () => {
                   displayImage && isComparisonMode ? (
                     <ImageComparisonSlider
                       beforeImage={displayImage}
-                      afterImage={getImageSrc(state.generatedImages[state.selectedHistoryIndex])}
+                      afterImage={getOriginalFromHistory(state.history, state.selectedHistoryIndex)}
                       className="w-full h-full border-0 rounded-none bg-stone-950/50"
                       layoutData={state.layoutData}
                       isAnalyzingLayout={state.isAnalyzingLayout}
@@ -1981,12 +2009,12 @@ const App: React.FC = () => {
                     />
                   ) : (
                     <ImageViewer
-                      src={getImageSrc(state.generatedImages[state.selectedHistoryIndex])}
+                      src={getOriginalFromHistory(state.history, state.selectedHistoryIndex)}
                       alt="Generated Result"
                       className="w-full h-full border-0 rounded-none bg-stone-950/50"
                       layoutData={state.layoutData}
                       isAnalyzingLayout={state.isAnalyzingLayout}
-                      onFullscreen={() => setFullscreenImg(getImageSrc(state.generatedImages[state.selectedHistoryIndex]))}
+                      onFullscreen={() => setFullscreenImg(getOriginalFromHistory(state.history, state.selectedHistoryIndex))}
                       zoom={imageZoom}
                       onZoomChange={handleZoomChange}
                     />

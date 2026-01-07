@@ -5,13 +5,16 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
+import { HistoryItem } from '../types';
+import { getHistoryItemById } from '../services/historyService';
 
 interface GalleryModalProps {
     isOpen: boolean;
     onClose: () => void;
-    images: string[];
+    images: string[]; // Thumbnails for grid
+    history: HistoryItem[]; // Full history for fetching originals
     prompts?: string[];
     onSelectImage?: (index: number) => void;
     onDownload?: (index: number) => void;
@@ -24,18 +27,43 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
     isOpen,
     onClose,
     images,
+    history,
     prompts = [],
     onSelectImage,
     onDownload
 }) => {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+    const [fullImage, setFullImage] = useState<string | null>(null);
+    const [isLoadingFull, setIsLoadingFull] = useState(false);
+
+    // Set full image when selectedIndex changes (history prop already has full data)
+    useEffect(() => {
+        if (selectedIndex === null) {
+            setFullImage(null);
+            return;
+        }
+
+        const historyItem = history[selectedIndex];
+        if (historyItem?.generatedImage) {
+            setFullImage(historyItem.generatedImage);
+        }
+    }, [selectedIndex, history]);
 
     if (!isOpen) return null;
+
+    // Helper to format image src
+    const formatSrc = (img: string) => {
+        if (img.startsWith('http') || img.startsWith('data:')) return img;
+        return `data:image/jpeg;base64,${img}`;
+    };
 
     // 单图全屏模式
     if (selectedIndex !== null) {
         const handlePrev = () => setSelectedIndex(prev => prev !== null && prev > 0 ? prev - 1 : prev);
         const handleNext = () => setSelectedIndex(prev => prev !== null && prev < images.length - 1 ? prev + 1 : prev);
+
+        // Use full image if loaded, otherwise fallback to thumbnail
+        const displayImage = fullImage || images[selectedIndex];
 
         return (
             <div
@@ -51,7 +79,10 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                         <Icons.ArrowLeft size={20} />
                         <span className="text-sm font-medium">返回相册</span>
                     </button>
-                    <span className="text-stone-500 text-sm font-mono">{selectedIndex + 1} / {images.length}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-stone-500 text-sm font-mono">{selectedIndex + 1} / {images.length}</span>
+                        {isLoadingFull && <Icons.RefreshCw size={14} className="animate-spin text-stone-500" />}
+                    </div>
                     <div className="flex items-center gap-2">
                         {onDownload && (
                             <button
@@ -84,9 +115,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
 
                     {/* Image */}
                     <img
-                        src={images[selectedIndex]?.startsWith('http') || images[selectedIndex]?.startsWith('data:')
-                            ? images[selectedIndex]
-                            : `data:image/png;base64,${images[selectedIndex]}`}
+                        src={formatSrc(displayImage)}
                         alt={`Generated ${selectedIndex + 1}`}
                         className="max-w-[90%] max-h-[80vh] object-contain rounded-lg shadow-2xl"
                     />
@@ -155,7 +184,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                                 className="aspect-square rounded-lg overflow-hidden cursor-pointer relative bg-stone-900 border border-stone-800 hover:border-orange-500/50 transition-colors"
                             >
                                 <img
-                                    src={img.startsWith('http') || img.startsWith('data:') ? img : `data:image/png;base64,${img}`}
+                                    src={formatSrc(img)}
                                     alt={`Generated ${idx + 1}`}
                                     className="w-full h-full object-cover"
                                     loading="lazy"

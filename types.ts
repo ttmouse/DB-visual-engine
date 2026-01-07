@@ -37,7 +37,8 @@ export interface HistoryItem {
   prompt: string;
   timestamp: number;
   originalImage: string; // base64
-  generatedImage?: string; // base64
+  generatedImage?: string; // base64 (full resolution)
+  generatedImageThumb?: string; // base64 (thumbnail for gallery, ~200px)
   mimeType?: string;
   referenceImages?: ReferenceImage[];
   detectedAspectRatio?: string;
