@@ -145,8 +145,8 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
     const [imageDimensions, setImageDimensions] = useState<Map<number, ImageDimensions>>(new Map());
     const [containerWidth, setContainerWidth] = useState(0);
 
-    // Cache dimensions by GLOBAL index to avoid re-calc on view switch
-    const dimensionCache = useRef<Map<number, ImageDimensions>>(new Map());
+    // Cache dimensions by Item ID (string) to avoid re-calc on view switch/history updates
+    const dimensionCache = useRef<Map<string, ImageDimensions>>(new Map());
 
     const containerRef = useRef<HTMLDivElement>(null);
     const imagesVersionRef = useRef(0);

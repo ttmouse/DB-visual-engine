@@ -57,6 +57,7 @@ import {
     StopCircle,
     LayoutGrid,
     FolderOpen,
+    Columns,
     LucideProps
 } from 'lucide-react';
 
@@ -116,5 +117,7 @@ export const Icons = {
     Info: createIcon(Info),
     StopCircle: createIcon(StopCircle),
     LayoutGrid: createIcon(LayoutGrid),
-    FolderOpen: createIcon(FolderOpen)
+    FolderOpen: createIcon(FolderOpen),
+    Reverse: createIcon(ArrowLeftRight),
+    Columns: createIcon(Columns)
 };

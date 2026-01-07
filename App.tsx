@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import { ImageUploader } from './components/ImageUploader';
 import { AgentCard } from './components/AgentCard';
 import { ImageViewer } from './components/ImageViewer';
@@ -68,7 +69,7 @@ const INITIAL_STATE: AppState = {
   promptCache: { CN: '', EN: '' },
 
   // Global History
-  generatedImages: [],
+
   selectedHistoryIndex: 0,
   referenceImages: [],
   isComparing: false,
@@ -219,6 +220,46 @@ const App: React.FC = () => {
   const [isChatProcessing, setIsChatProcessing] = useState(false);
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
   const [aiInput, setAiInput] = useState('');
+  const [isReverseMenuOpen, setIsReverseMenuOpen] = useState(false);
+
+  // Refine Mode State (Moved up for scope access)
+  type RefineModeConfig = 'optimize-auto' | 'optimize-prompt';
+  const [selectedRefineMode, setSelectedRefineMode] = useState<RefineModeConfig>('optimize-auto');
+  const [isRefineMenuOpen, setIsRefineMenuOpen] = useState(false);
+
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; index: number } | null>(null);
+  const [refineMenuPosition, setRefineMenuPosition] = useState({ top: 0, left: 0 });
+  const refineButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Update Refine menu position
+  useEffect(() => {
+    if (isRefineMenuOpen && refineButtonRef.current) {
+      const rect = refineButtonRef.current.getBoundingClientRect();
+      setRefineMenuPosition({
+        top: rect.top - 8, // Just above the button
+        left: rect.left, // Align left
+      });
+    }
+  }, [isRefineMenuOpen]);
+
+  // State for Reverse Mode selection (4 options)
+  type ReverseModeConfig = 'quick-auto' | 'quick-prompt' | 'full-auto' | 'full-prompt';
+  const [selectedReverseMode, setSelectedReverseMode] = useState<ReverseModeConfig>('quick-auto');
+
+  // Ref to track auto-generation for Full Pipeline
+  const autoGenerateAfterPipeline = useRef(false);
+
+  // Monitor Pipeline Completion for Auto-Generation
+  useEffect(() => {
+    if (autoGenerateAfterPipeline.current) {
+      // Check if Synthesizer (final step) is complete
+      const synthesizerResult = state.results[AgentRole.SYNTHESIZER];
+      if (synthesizerResult?.content && !synthesizerResult.isStreaming && !state.isProcessing) {
+        autoGenerateAfterPipeline.current = false; // Reset
+        handleGenerateImage();
+      }
+    }
+  }, [state.results, state.isProcessing]);
 
   // Resizable panel state (percentage, stored in localStorage)
   const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
@@ -729,7 +770,7 @@ const App: React.FC = () => {
   }, [state.isProcessing]);
 
   // 单步快速逆向
-  const handleQuickReverse = async () => {
+  const handleQuickReverse = async (autoGenerate: boolean = false) => {
     if (!state.image || isPipelineRunning.current) return;
     isPipelineRunning.current = true;
     setState(prev => ({ ...prev, isProcessing: true }));
@@ -828,31 +869,67 @@ const App: React.FC = () => {
         setShowProgressView(false);
         setActiveTab('STUDIO');
         showToast(t('toast.reverseComplete'), "success");
-      }, 2000);
 
-    } catch (error) {
-      soundService.playError();
+        // Auto Generate if requested
+        if (autoGenerate) {
+          handleGenerateImage(selectedSuggestion);
+        }
+      }, 1500);
+
+    } catch (e: any) {
+      console.error(e);
+      showToast(e.message || t('toast.analysisFailed'), 'error');
 
       const currentProgress = pipelineProgress;
       if (currentProgress) {
         const newSteps = [...currentProgress.steps];
-        newSteps[0] = {
-          ...newSteps[0],
-          status: PipelineStepStatus.ERROR,
-          error: String(error),
-          endTime: Date.now()
-        };
-        setProgressDirect({
-          ...currentProgress,
-          steps: newSteps,
-          isRunning: false
-        });
+        newSteps[0].status = PipelineStepStatus.ERROR;
+        newSteps[0].error = e.message;
+        setProgressDirect({ ...currentProgress, steps: newSteps, isRunning: false });
       }
-
-      showToast(t('toast.reverseFailed'), "error");
     } finally {
-      setState(prev => ({ ...prev, isProcessing: false }));
       isPipelineRunning.current = false;
+      setState(prev => ({ ...prev, isProcessing: false }));
+    }
+  };
+
+  // Helper to execute the currently selected Reverse Mode
+  const executeReverseAction = () => {
+    if (selectedReverseMode === 'quick-auto') {
+      handleQuickReverse(true);
+    } else if (selectedReverseMode === 'quick-prompt') {
+      handleQuickReverse(false);
+    } else {
+      // Full Reverse Modes
+      const autoGenerate = selectedReverseMode === 'full-auto';
+
+      const hasContent = state.results[AgentRole.AUDITOR]?.content?.trim() ||
+        state.results[AgentRole.DESCRIPTOR]?.content?.trim() ||
+        state.results[AgentRole.ARCHITECT]?.content?.trim();
+
+      if (!hasContent) {
+        if (state.image) {
+          autoGenerateAfterPipeline.current = autoGenerate; // Set flag
+          handleStartPipeline();
+        } else {
+          showToast(t('toast.pleaseUploadImage'), 'error');
+        }
+      } else {
+        // If content exists, regenerate Synthesizer
+        autoGenerateAfterPipeline.current = autoGenerate; // Set flag
+        handleRegenerateAgent(AgentRole.SYNTHESIZER);
+      }
+    }
+  };
+
+  // Helper to get button label
+  const getReverseButtonLabel = () => {
+    switch (selectedReverseMode) {
+      case 'quick-prompt': return '快速逆向-提示词';
+      case 'full-prompt': return '完整逆向-提示词';
+      case 'full-auto': return '完整逆向';
+      case 'quick-auto': return '快速逆向';
+      default: return 'Reverse';
     }
   };
 
@@ -1148,6 +1225,8 @@ const App: React.FC = () => {
     }
   };
 
+
+
   // Chat handlers
   const handleChatSendMessage = async (message: string) => {
     // Add user message
@@ -1214,6 +1293,12 @@ const App: React.FC = () => {
         setChatMessages(prev => prev.map(m =>
           m.id === streamingMsg.id ? { ...m, content: '已根据你的建议修改了提示词，请查看左侧编辑器。', isStreaming: false } : m
         ));
+
+        // Auto Generate if mode is 'optimize-auto'
+        if (selectedRefineMode === 'optimize-auto') {
+          handleGenerateImage(newPrompt);
+        }
+
       } else if (skillType === 'generate') {
         setChatMessages(prev => [...prev, createAssistantMessage(t('chat.generatingImages'))]);
         handleGenerateImage();
@@ -1283,87 +1368,75 @@ const App: React.FC = () => {
                 <p className="text-[10px] text-stone-500 font-medium uppercase mt-0.5">{t('panel.promptEditor')}</p>
               </div>
 
-              <div className="flex items-center gap-1 bg-stone-800 rounded-lg p-1">
-                <button
-                  onClick={() => setReverseMode('full')}
-                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'full' ? 'bg-stone-600 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
-                >
-                  {t('studio.mode.full')}
-                </button>
-                <button
-                  onClick={() => setReverseMode('quick')}
-                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'quick' ? 'bg-stone-600 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
-                >
-                  {t('studio.mode.quick')}
-                </button>
-              </div>
-              {/* Version Selector - Custom Dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setState(prev => ({ ...prev, isVersionDropdownOpen: !prev.isVersionDropdownOpen }))}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-stone-800 hover:bg-stone-700 rounded-lg text-xs font-bold text-stone-300 transition-colors"
-                >
-                  <span>{promptManager.getVersions(AgentRole.SYNTHESIZER).find(v => v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER))?.name || '选择版本'}</span>
-                  <Icons.ChevronDown size={12} className={`transition-transform ${state.isVersionDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {state.isVersionDropdownOpen && (
-                  <>
-                    {/* Backdrop to close dropdown */}
-                    <div className="fixed inset-0 z-40" onClick={() => setState(prev => ({ ...prev, isVersionDropdownOpen: false }))} />
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden">
-                      {promptManager.getVersions(AgentRole.SYNTHESIZER).map(v => (
-                        <div
-                          key={v.id}
-                          onClick={() => {
-                            promptManager.setActiveVersionId(AgentRole.SYNTHESIZER, v.id);
-                            setState(prev => ({ ...prev, isVersionDropdownOpen: false }));
-                          }}
-                          className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER)
-                            ? 'bg-stone-700 text-orange-400'
-                            : 'text-stone-300'
-                            }`}
-                        >
-                          {v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER) && <Icons.Check size={12} />}
-                          <span>{v.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5">
-                {state.promptHistory.length > 0 && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setIsHistoryDropdownOpen(!isHistoryDropdownOpen)}
-                      className="flex items-center gap-1 px-3 py-2 bg-amber-900/20 text-amber-500 hover:bg-amber-900/40 rounded-lg text-[9px] font-bold transition-colors"
-                    >
-                      <Icons.History size={10} />
-                      {state.promptHistory.length}
-                    </button>
-                    {isHistoryDropdownOpen && (
-                      <div className="absolute top-full right-0 mt-1 w-64 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
-                        {state.promptHistory.map((entry, idx) => {
-                          const lines = entry.split('\n');
-                          const header = lines[0];
-                          return (
-                            <div
-                              key={idx}
-                              onClick={() => {
-                                const content = lines.slice(1).join('\n');
-                                setState(prev => ({ ...prev, editablePrompt: content }));
-                                setIsHistoryDropdownOpen(false);
-                              }}
-                              className="px-3 py-2 hover:bg-stone-700 cursor-pointer text-[10px] border-b border-stone-700 last:border-b-0"
-                            >
-                              <span className="font-bold text-amber-500">{header}</span>
-                            </div>
-                          );
-                        })}
+              <div className="flex items-center gap-1">
+                {/* Version Selector - Custom Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setState(prev => ({ ...prev, isVersionDropdownOpen: !prev.isVersionDropdownOpen }))}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-stone-800 hover:bg-stone-700 rounded-lg text-xs font-bold text-stone-300 transition-colors"
+                  >
+                    <span>{promptManager.getVersions(AgentRole.SYNTHESIZER).find(v => v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER))?.name || '选择版本'}</span>
+                    <Icons.ChevronDown size={12} className={`transition-transform ${state.isVersionDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {state.isVersionDropdownOpen && (
+                    <>
+                      {/* Backdrop to close dropdown */}
+                      <div className="fixed inset-0 z-40" onClick={() => setState(prev => ({ ...prev, isVersionDropdownOpen: false }))} />
+                      <div className="absolute top-full left-0 mt-1 w-48 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                        {promptManager.getVersions(AgentRole.SYNTHESIZER).map(v => (
+                          <div
+                            key={v.id}
+                            onClick={() => {
+                              promptManager.setActiveVersionId(AgentRole.SYNTHESIZER, v.id);
+                              setState(prev => ({ ...prev, isVersionDropdownOpen: false }));
+                            }}
+                            className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER)
+                              ? 'bg-stone-700 text-orange-400'
+                              : 'text-stone-300'
+                              }`}
+                          >
+                            {v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER) && <Icons.Check size={12} />}
+                            <span>{v.name}</span>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {state.promptHistory.length > 0 && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setIsHistoryDropdownOpen(!isHistoryDropdownOpen)}
+                        className="flex items-center gap-1 px-3 py-2 bg-amber-900/20 text-amber-500 hover:bg-amber-900/40 rounded-lg text-[9px] font-bold transition-colors"
+                      >
+                        <Icons.History size={10} />
+                        {state.promptHistory.length}
+                      </button>
+                      {isHistoryDropdownOpen && (
+                        <div className="absolute top-full right-0 mt-1 w-64 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                          {state.promptHistory.map((entry, idx) => {
+                            const lines = entry.split('\n');
+                            const header = lines[0];
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() => {
+                                  const content = lines.slice(1).join('\n');
+                                  setState(prev => ({ ...prev, editablePrompt: content }));
+                                  setIsHistoryDropdownOpen(false);
+                                }}
+                                className="px-3 py-2 hover:bg-stone-700 cursor-pointer text-[10px] border-b border-stone-700 last:border-b-0"
+                              >
+                                <span className="font-bold text-amber-500">{header}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1471,7 +1544,7 @@ const App: React.FC = () => {
           </div>
 
           {/* Bottom Actions */}
-          <div className="p-4 border-t border-stone-800 flex-shrink-0 space-y-3">
+          <div className="p-4 border-t border-stone-800 flex-shrink-0 space-y-3 relative z-50">
             {/* Button Row */}
             <div className="flex items-center gap-2">
               {/* @ Mention Button with Dropdown */}
@@ -1551,33 +1624,64 @@ const App: React.FC = () => {
               {/* Main Actions Area (No overflow to allow dropdowns) */}
               {/* Main Actions Area (No overflow to allow dropdowns) */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <button
-                  onClick={() => {
-                    if (reverseMode === 'quick') {
-                      handleQuickReverse();
-                    } else {
-                      const hasAuditorContent = state.results[AgentRole.AUDITOR]?.content?.trim();
-                      const hasDescriptorContent = state.results[AgentRole.DESCRIPTOR]?.content?.trim();
-                      const hasArchitectContent = state.results[AgentRole.ARCHITECT]?.content?.trim();
-
-                      if (!hasAuditorContent && !hasDescriptorContent && !hasArchitectContent) {
-                        if (state.image) {
-                          handleStartPipeline();
-                        } else {
-                          showToast(t('toast.pleaseUploadImage'), 'error');
-                        }
-                      } else {
-                        handleRegenerateAgent(AgentRole.SYNTHESIZER);
-                      }
-                    }
-                  }}
-                  disabled={!state.image || state.isProcessing}
-                  className="flex-1 py-2 bg-stone-800 text-stone-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-700 transition-all border border-stone-700 whitespace-nowrap px-3 min-w-fit"
-                  title={reverseMode === 'quick' ? t('reverse.quick.title') : t('reverse.full.title')}
-                >
-                  <Icons.Sparkles size={14} />
-                  {t('studio.reverse')}
-                </button>
+                <div className="relative flex-1 flex min-w-fit">
+                  <button
+                    onClick={executeReverseAction}
+                    disabled={!state.image || state.isProcessing}
+                    className="flex-1 py-2 bg-stone-800 text-stone-300 rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-700 transition-all border border-stone-700 border-r-0 whitespace-nowrap px-3 min-w-fit"
+                    title={getReverseButtonLabel()}
+                  >
+                    <Icons.Sparkles size={14} />
+                    {getReverseButtonLabel()}
+                  </button>
+                  <button
+                    onClick={() => setIsReverseMenuOpen(!isReverseMenuOpen)}
+                    disabled={!state.image || state.isProcessing}
+                    className="px-2 py-2 bg-stone-800 text-stone-300 rounded-r-xl text-xs font-bold flex items-center justify-center disabled:opacity-40 hover:bg-stone-700 transition-all border border-stone-700 border-l border-l-stone-600"
+                  >
+                    <Icons.ChevronDown size={12} className={`transition-transform ${isReverseMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isReverseMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setIsReverseMenuOpen(false)} />
+                      <div className="absolute bottom-full left-0 right-0 mb-1 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden min-w-[160px]">
+                        {/* Option 1: Quick - Prompt Only */}
+                        <div
+                          onClick={() => { setSelectedReverseMode('quick-prompt'); setIsReverseMenuOpen(false); }}
+                          className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedReverseMode === 'quick-prompt' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
+                        >
+                          {selectedReverseMode === 'quick-prompt' && <Icons.Check size={12} />}
+                          <span className={selectedReverseMode !== 'quick-prompt' ? 'pl-5' : ''}>快速逆向-提示词</span>
+                        </div>
+                        {/* Option 2: Full - Prompt Only */}
+                        <div
+                          onClick={() => { setSelectedReverseMode('full-prompt'); setIsReverseMenuOpen(false); }}
+                          className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedReverseMode === 'full-prompt' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
+                        >
+                          {selectedReverseMode === 'full-prompt' && <Icons.Check size={12} />}
+                          <span className={selectedReverseMode !== 'full-prompt' ? 'pl-5' : ''}>完整逆向-提示词</span>
+                        </div>
+                        <div className="h-px bg-stone-600 my-1 mx-2 opacity-30" />
+                        {/* Option 3: Full - Auto */}
+                        <div
+                          onClick={() => { setSelectedReverseMode('full-auto'); setIsReverseMenuOpen(false); }}
+                          className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedReverseMode === 'full-auto' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
+                        >
+                          {selectedReverseMode === 'full-auto' && <Icons.Check size={12} />}
+                          <span className={selectedReverseMode !== 'full-auto' ? 'pl-5' : ''}>完整逆向</span>
+                        </div>
+                        {/* Option 4: Quick - Auto (Default) */}
+                        <div
+                          onClick={() => { setSelectedReverseMode('quick-auto'); setIsReverseMenuOpen(false); }}
+                          className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedReverseMode === 'quick-auto' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
+                        >
+                          {selectedReverseMode === 'quick-auto' && <Icons.Check size={12} />}
+                          <span className={selectedReverseMode !== 'quick-auto' ? 'pl-5' : ''}>快速逆向</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <div className="relative flex-1 flex min-w-fit">
                   <button
                     onClick={() => handleGenerateImage(undefined, generateCount)}
@@ -1781,44 +1885,91 @@ const App: React.FC = () => {
                       <Icons.Sparkles size={14} />
                     </button>
                   )}
-                  <button
-                    onClick={() => {
-                      if (aiInput.trim()) {
-                        handleChatSendMessage(aiInput.trim());
-                        setAiInput('');
-                        setIsChatDrawerOpen(true);
-                      }
-                    }}
-                    disabled={!aiInput.trim() || isChatProcessing}
-                    className="p-1.5 bg-stone-700 text-white rounded-lg disabled:opacity-40 transition-all hover:bg-stone-600"
-                    title="发送"
-                  >
-                    {isChatProcessing ? (
-                      <Icons.RefreshCw size={14} className="animate-spin" />
-                    ) : (
-                      <Icons.ArrowUp size={14} />
+                  <div className="flex items-center gap-1">
+                    <div className="relative flex min-w-fit">
+                      <button
+                        onClick={() => {
+                          if (aiInput.trim()) {
+                            // If auto-optimize is selected, we might want to manually trigger refine intent if the input is ambiguous?
+                            // But usually "optimize prompt" implies refine.
+                            // Let's assume input is the instruction.
+                            handleChatSendMessage(aiInput.trim());
+                            setAiInput('');
+                            setIsChatDrawerOpen(true);
+                          }
+                        }}
+                        disabled={!aiInput.trim() || isChatProcessing}
+                        className="pl-3 pr-2 py-1.5 bg-stone-700 text-white rounded-l-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-600 transition-all"
+                        title={selectedRefineMode === 'optimize-auto' ? "优化并生成" : "仅优化提示词"}
+                      >
+                        <Icons.Sparkles size={14} className={selectedRefineMode === 'optimize-auto' ? "text-amber-400" : ""} />
+                        {selectedRefineMode === 'optimize-auto' ? "优化" : "优化提示词"}
+                      </button>
+                      <button
+                        ref={refineButtonRef}
+                        type="button"
+                        className="inline-flex items-center p-1.5 rounded-r-lg text-[10px] font-bold transition-all bg-stone-700 text-white hover:bg-stone-600 border-l border-stone-800 disabled:opacity-40"
+                        onClick={() => setIsRefineMenuOpen(!isRefineMenuOpen)}
+                        disabled={isChatProcessing}
+                      >
+                        <Icons.ChevronDown size={12} className={`transition-transform ${isRefineMenuOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+                    {isRefineMenuOpen && ReactDOM.createPortal(
+                      <>
+                        <div className="fixed inset-0 z-[9998]" onClick={() => setIsRefineMenuOpen(false)} />
+                        <div
+                          className="fixed z-[9999] bg-stone-800 border border-stone-700 rounded-lg shadow-xl overflow-hidden min-w-[140px]"
+                          style={{
+                            top: refineMenuPosition.top,
+                            left: refineMenuPosition.left,
+                            transform: 'translateY(-100%)', // Grow upwards
+                          }}
+                        >
+                          {/* Option 1: Optimize - Auto (Default) */}
+                          <div
+                            onClick={() => { setSelectedRefineMode('optimize-auto'); setIsRefineMenuOpen(false); }}
+                            className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedRefineMode === 'optimize-auto' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
+                          >
+                            {selectedRefineMode === 'optimize-auto' && <Icons.Check size={12} />}
+                            <span className={selectedRefineMode !== 'optimize-auto' ? 'pl-5' : ''}>优化</span>
+                          </div>
+
+                          {/* Option 2: Optimize - Prompt Only */}
+                          <div
+                            onClick={() => { setSelectedRefineMode('optimize-prompt'); setIsRefineMenuOpen(false); }}
+                            className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedRefineMode === 'optimize-prompt' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
+                          >
+                            {selectedRefineMode === 'optimize-prompt' && <Icons.Check size={12} />}
+                            <span className={selectedRefineMode !== 'optimize-prompt' ? 'pl-5' : ''}>优化提示词</span>
+                          </div>
+                        </div>
+                      </>,
+                      document.body
                     )}
-                  </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 进度视图覆盖层 */}
-          {showProgressView && pipelineProgress && (
-            <PipelineProgressView
-              progress={pipelineProgress}
-              onHide={() => setShowProgressView(false)}
-              onCancel={() => {
-                // 取消流水线逻辑
-                resetPipeline();
-                setShowProgressView(false);
-                setState(prev => ({ ...prev, isProcessing: false }));
-                isPipelineRunning.current = false;
-              }}
-            />
-          )}
-        </div>
+          {
+            showProgressView && pipelineProgress && (
+              <PipelineProgressView
+                progress={pipelineProgress}
+                onHide={() => setShowProgressView(false)}
+                onCancel={() => {
+                  // 取消流水线逻辑
+                  resetPipeline();
+                  setShowProgressView(false);
+                  setState(prev => ({ ...prev, isProcessing: false }));
+                  isPipelineRunning.current = false;
+                }}
+              />
+            )
+          }
+        </div >
       );
     }
     // Agent tabs (AUDITOR, DESCRIPTOR, ARCHITECT)
@@ -2288,12 +2439,41 @@ const App: React.FC = () => {
                   isActive={index === state.selectedHistoryIndex}
                   onClick={() => loadHistoryItem(index)}
                   onDelete={() => handleDeleteHistoryItem(index)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({ x: e.clientX, y: e.clientY, index });
+                  }}
                 />
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)} />
+          <div
+            className="fixed z-50 bg-stone-800 border border-stone-700 rounded-lg shadow-xl overflow-hidden min-w-[160px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              onClick={() => {
+                const imgUrl = getOriginalFromHistory(state.history, contextMenu.index);
+                setDisplayImage(imgUrl);
+                setIsComparisonMode(true);
+                setContextMenu(null);
+                showToast('已添加到对比模式 (左侧)', 'success');
+              }}
+              className="w-full text-left px-4 py-2.5 hover:bg-stone-700 cursor-pointer text-xs text-stone-300 hover:text-white flex items-center gap-2 transition-colors"
+            >
+              <Icons.Columns size={14} />
+              <span>{t('gallery.addToComparison' as any) || '添加到对比模式'}</span>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

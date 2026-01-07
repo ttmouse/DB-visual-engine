@@ -8,6 +8,7 @@ interface HistoryThumbnailProps {
   onClick: () => void;
   onDelete?: () => void;
   onDownloadHD?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 export const HistoryThumbnail: React.FC<HistoryThumbnailProps> = ({
@@ -17,6 +18,7 @@ export const HistoryThumbnail: React.FC<HistoryThumbnailProps> = ({
   onClick,
   onDelete,
   onDownloadHD,
+  onContextMenu,
 }) => {
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -31,6 +33,7 @@ export const HistoryThumbnail: React.FC<HistoryThumbnailProps> = ({
   return (
     <div
       onClick={onClick}
+      onContextMenu={onContextMenu}
       className={`
         relative w-full h-full rounded-lg overflow-hidden border cursor-pointer
         transition-all duration-200 group
