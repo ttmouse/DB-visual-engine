@@ -1900,10 +1900,10 @@ const App: React.FC = () => {
                         }}
                         disabled={!aiInput.trim() || isChatProcessing}
                         className="pl-3 pr-2 py-1.5 bg-stone-700 text-white rounded-l-lg text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-600 transition-all"
-                        title={selectedRefineMode === 'optimize-auto' ? "优化并生成" : "仅优化提示词"}
+                        title={selectedRefineMode === 'optimize-auto' ? t('refine.optimizeAndGenerate') : t('refine.optimizePromptOnly')}
                       >
                         <Icons.Sparkles size={14} className={selectedRefineMode === 'optimize-auto' ? "text-amber-400" : ""} />
-                        {selectedRefineMode === 'optimize-auto' ? "优化" : "优化提示词"}
+                        {selectedRefineMode === 'optimize-auto' ? t('refine.optimize') : t('refine.optimizePrompt')}
                       </button>
                       <button
                         ref={refineButtonRef}
@@ -1932,7 +1932,7 @@ const App: React.FC = () => {
                             className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedRefineMode === 'optimize-auto' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
                           >
                             {selectedRefineMode === 'optimize-auto' && <Icons.Check size={12} />}
-                            <span className={selectedRefineMode !== 'optimize-auto' ? 'pl-5' : ''}>优化</span>
+                            <span className={selectedRefineMode !== 'optimize-auto' ? 'pl-5' : ''}>{t('refine.optimize')}</span>
                           </div>
 
                           {/* Option 2: Optimize - Prompt Only */}
@@ -1941,7 +1941,7 @@ const App: React.FC = () => {
                             className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedRefineMode === 'optimize-prompt' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
                           >
                             {selectedRefineMode === 'optimize-prompt' && <Icons.Check size={12} />}
-                            <span className={selectedRefineMode !== 'optimize-prompt' ? 'pl-5' : ''}>优化提示词</span>
+                            <span className={selectedRefineMode !== 'optimize-prompt' ? 'pl-5' : ''}>{t('refine.optimizePrompt')}</span>
                           </div>
                         </div>
                       </>,
@@ -2464,12 +2464,12 @@ const App: React.FC = () => {
                 setDisplayImage(imgUrl);
                 setIsComparisonMode(true);
                 setContextMenu(null);
-                showToast('已添加到对比模式 (左侧)', 'success');
+                showToast(t('gallery.addedToComparisonLeft'), 'success');
               }}
               className="w-full text-left px-4 py-2.5 hover:bg-stone-700 cursor-pointer text-xs text-stone-300 hover:text-white flex items-center gap-2 transition-colors"
             >
               <Icons.Columns size={14} />
-              <span>{t('gallery.addToComparison' as any) || '添加到对比模式'}</span>
+              <span>{t('gallery.addToComparison')}</span>
             </button>
           </div>
         </>

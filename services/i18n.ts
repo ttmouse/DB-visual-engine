@@ -119,7 +119,13 @@ export type I18nKey =
   | 'common.delete'
   | 'common.download'
   | 'gallery.title'
-  | 'gallery.keyboardHint';
+  | 'gallery.keyboardHint'
+  | 'refine.optimize'
+  | 'refine.optimizePrompt'
+  | 'refine.optimizeAndGenerate'
+  | 'refine.optimizePromptOnly'
+  | 'gallery.addToComparison'
+  | 'gallery.addedToComparisonLeft';
 
 export const translations: Record<Language, Record<I18nKey, string>> = {
   CN: {
@@ -241,7 +247,13 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'common.delete': '删除',
     'common.download': '下载',
     'gallery.title': '相册',
-    'gallery.keyboardHint': '← → ↑ ↓ 选择 · 空格 打开 · Enter 编辑 · ESC 关闭'
+    'gallery.keyboardHint': '← → ↑ ↓ 选择 · 空格 打开 · Enter 编辑 · ESC 关闭',
+    'refine.optimize': '优化',
+    'refine.optimizePrompt': '优化提示词',
+    'refine.optimizeAndGenerate': '优化并生成',
+    'refine.optimizePromptOnly': '仅优化提示词',
+    'gallery.addToComparison': '添加到对比模式',
+    'gallery.addedToComparisonLeft': '已添加到对比模式 (左侧)'
   },
 
   EN: {
@@ -363,7 +375,13 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'common.delete': 'Delete',
     'common.download': 'Download',
     'gallery.title': 'Gallery',
-    'gallery.keyboardHint': '← → ↑ ↓ Navigate · Space Open · Enter Edit · ESC Close'
+    'gallery.keyboardHint': '← → ↑ ↓ Navigate · Space Open · Enter Edit · ESC Close',
+    'refine.optimize': 'Optimize',
+    'refine.optimizePrompt': 'Refine Prompt',
+    'refine.optimizeAndGenerate': 'Optimize & Generate',
+    'refine.optimizePromptOnly': 'Refine Prompt Only',
+    'gallery.addToComparison': 'Add to Comparison',
+    'gallery.addedToComparisonLeft': 'Added to Comparison (Left)'
   }
 };
 
