@@ -54,7 +54,8 @@ import {
     MessageSquare,
     ArrowUp,
     Info,
-    StopCircle
+    StopCircle,
+    LayoutGrid
 } from 'lucide-react';
 
 export const Icons = {
@@ -105,5 +106,6 @@ export const Icons = {
     MessageSquare,
     ArrowUp,
     Info,
-    StopCircle
+    StopCircle,
+    LayoutGrid
 };

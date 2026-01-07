@@ -7,6 +7,7 @@ ApiKeyModal.tsx: API Key 配置与验证模态框
 ChatDrawer.tsx: 侧边栏聊天历史记录抽屉
 ChatPanel.tsx: 主聊天交互面板，集成消息流
 DocumentationModal.tsx: 系统文档展示模态框
+GalleryModal.tsx: 全屏相册浏览器，Grid 模式展示所有生成历史
 HistoryThumbnail.tsx: 历史生成记录的缩略图组件
 Icons.tsx: 系统使用的 SVG 图标集合
 ImageComparisonSlider.tsx: 原图与生成图的滑块对比组件

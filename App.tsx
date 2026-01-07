@@ -33,6 +33,7 @@ import { LandingPage } from './components/LandingPage';
 import { DocumentationModal } from './components/DocumentationModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { PromptLabModal } from './components/PromptLabModal';
+import { GalleryModal } from './components/GalleryModal';
 import ReactMarkdown from 'react-markdown';
 import { extractPromptFromPng, embedPromptInPng } from './utils/pngMetadata';
 
@@ -192,6 +193,7 @@ const App: React.FC = () => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isPromptLabOpen, setIsPromptLabOpen] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState<'CN' | 'EN'>('CN');
   const [isHistoryDropdownOpen, setIsHistoryDropdownOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -504,8 +506,8 @@ const App: React.FC = () => {
       ...INITIAL_STATE,
       history: prev.history,
       generatedImages: prev.generatedImages,
-      generatedImage: prev.generatedImage,
-      selectedHistoryIndex: prev.selectedHistoryIndex
+      generatedImage: null,
+      selectedHistoryIndex: -1
     }));
     clearCurrentTask(); // Clear cache when starting new task
   };
@@ -1754,6 +1756,17 @@ const App: React.FC = () => {
 
       <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
       <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
+      <GalleryModal
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
+        images={state.generatedImages}
+        prompts={state.history.map(h => h.prompt)}
+        onSelectImage={(idx) => {
+          loadHistoryItem(idx);
+          setIsGalleryOpen(false);
+        }}
+        onDownload={handleDownloadHD}
+      />
 
       {/* Global Drag Overlay Removed */}
 
@@ -1814,6 +1827,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-2">
           <StorageIndicator />
           <button onClick={() => setIsPromptLabOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-amber-500 transition-all" title="Prompt Lab"><Icons.Wand2 size={20} /></button>
+          <button onClick={() => setIsGalleryOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-violet-500 transition-all" title="相册"><Icons.LayoutGrid size={20} /></button>
           <button onClick={() => setIsHelpOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-orange-500 transition-all" title="帮助文档"><Icons.Help size={20} /></button>
           <button onClick={() => setState(prev => ({ ...prev, isHistoryOpen: true }))} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-stone-200 transition-all" title="历史记录"><Icons.History size={20} /></button>
           <button
