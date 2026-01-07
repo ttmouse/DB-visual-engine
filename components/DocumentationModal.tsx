@@ -16,12 +16,12 @@ interface DocumentationModalProps {
 }
 
 export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, onClose }) => {
-  const [activeArticleId, setActiveArticleId] = useState<string>('quick-start');
+  const [activeArticleId, setActiveArticleId] = useState<string>('changelog');
 
-  // Reset to quick start when opened
+  // Reset to changelog when opened
   useEffect(() => {
     if (isOpen) {
-      setActiveArticleId('quick-start');
+      setActiveArticleId('changelog');
     }
   }, [isOpen]);
 
@@ -129,53 +129,56 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
 
           {/* Markdown Content */}
           <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-            <div className="max-w-4xl mx-auto px-10 py-12">
-              <div className="prose prose-invert prose-stone max-w-none
-                prose-headings:font-bold prose-headings:tracking-tight
-                prose-h1:text-3xl prose-h1:text-white prose-h1:mb-8 prose-h1:pb-4 prose-h1:border-b prose-h1:border-stone-800
-                prose-h2:text-2xl prose-h2:text-stone-100 prose-h2:mt-12 prose-h2:mb-6
-                prose-h3:text-xl prose-h3:text-orange-500 prose-h3:mt-10 prose-h3:mb-4 prose-h3:font-semibold
+            <div className="max-w-3xl mx-auto px-8 py-10">
+              <div className="prose prose-invert max-w-none
+                prose-headings:font-semibold prose-headings:tracking-normal
+                prose-h1:text-2xl prose-h1:text-white prose-h1:mb-6 prose-h1:pb-3 prose-h1:border-b prose-h1:border-stone-700/50
+                prose-h2:text-xl prose-h2:text-stone-100 prose-h2:mt-8 prose-h2:mb-4 prose-h2:font-medium
+                prose-h3:text-base prose-h3:text-stone-200 prose-h3:mt-6 prose-h3:mb-3 prose-h3:font-medium
 
-                prose-p:text-stone-300 prose-p:leading-8 prose-p:my-5 prose-p:text-[16px]
+                prose-p:text-stone-400 prose-p:leading-7 prose-p:my-3 prose-p:text-sm
 
-                prose-strong:text-stone-100 prose-strong:font-bold
+                prose-strong:text-stone-200 prose-strong:font-semibold
 
-                prose-blockquote:bg-stone-900/30 prose-blockquote:border-l-4 prose-blockquote:border-orange-500 prose-blockquote:py-4 prose-blockquote:px-6 prose-blockquote:rounded-r-xl prose-blockquote:not-italic prose-blockquote:my-8 prose-blockquote:text-stone-400
+                prose-blockquote:bg-stone-800/30 prose-blockquote:border-l-2 prose-blockquote:border-orange-500/60 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-md prose-blockquote:not-italic prose-blockquote:my-4
 
-                prose-code:text-orange-300 prose-code:bg-stone-900 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:border prose-code:border-stone-800/50 prose-code:font-mono prose-code:text-[0.9em] prose-code:before:content-none prose-code:after:content-none
+                prose-code:text-orange-400 prose-code:bg-stone-800/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none
 
-                prose-ul:my-6 prose-ul:list-none prose-ul:pl-0
-                prose-li:text-stone-300 prose-li:my-3 prose-li:leading-7 prose-li:pl-0 prose-li:relative
+                prose-ul:my-3 prose-ul:list-none prose-ul:pl-0
+                prose-li:text-stone-400 prose-li:my-1.5 prose-li:leading-6 prose-li:pl-0 prose-li:text-sm
 
-                prose-hr:border-stone-800 prose-hr:my-12
+                prose-hr:border-stone-700/50 prose-hr:my-6
 
-                prose-img:rounded-2xl prose-img:border prose-img:border-stone-800 prose-img:shadow-2xl prose-img:my-8
+                prose-img:rounded-lg prose-img:border prose-img:border-stone-700 prose-img:my-4
               ">
                 <ReactMarkdown
                   components={{
-                    // Custom renderer for blockquotes to style them like alerts if needed
+                    // Simplified blockquote
                     blockquote: ({ node, ...props }) => (
-                      <div className="flex gap-4 bg-stone-900/40 border border-stone-800/50 p-5 rounded-xl my-8">
-                        <div className="shrink-0 text-orange-500 mt-1">
-                          <Icons.Info size={20} />
-                        </div>
+                      <div className="flex gap-3 bg-stone-800/20 border-l-2 border-orange-500/50 py-2 px-4 rounded-r my-4">
                         <div className="text-stone-400 text-sm leading-relaxed">
                           {props.children}
                         </div>
                       </div>
                     ),
-                    // Custom list item renderer
+                    // Simple list item with small dot
                     li: ({ node, ...props }) => (
-                      <li {...props} className="pl-0 relative flex gap-3 items-start my-3 text-stone-300 group">
-                        <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-stone-600 mt-2.5 group-hover:bg-orange-500 transition-colors" />
-                        <span className="flex-1 group-hover:text-stone-200 transition-colors">{props.children}</span>
+                      <li className="pl-0 relative flex gap-2.5 items-start my-1.5 text-stone-400 text-sm leading-6">
+                        <span className="shrink-0 w-1 h-1 rounded-full bg-stone-500 mt-2.5" />
+                        <span className="flex-1">{props.children}</span>
                       </li>
                     ),
+                    // Clean h3 without decorative bar
                     h3: ({ node, ...props }) => (
-                      <h3 {...props} className="flex items-center gap-2 text-lg font-bold text-stone-200 mt-10 mb-4 pb-2 border-b border-stone-800/50">
-                        <span className="w-1 h-6 bg-orange-500 rounded-full"></span>
+                      <h3 className="text-base font-medium text-stone-200 mt-6 mb-3">
                         {props.children}
                       </h3>
+                    ),
+                    // Clean h2 for version headers
+                    h2: ({ node, ...props }) => (
+                      <h2 className="text-lg font-semibold text-stone-100 mt-8 mb-4 pb-2 border-b border-stone-700/30">
+                        {props.children}
+                      </h2>
                     )
                   }}
                 >
@@ -184,7 +187,7 @@ export const DocumentationModal: React.FC<DocumentationModalProps> = ({ isOpen, 
               </div>
 
               {/* Footer Spacer */}
-              <div className="h-20" />
+              <div className="h-12" />
             </div>
           </div>
         </div>

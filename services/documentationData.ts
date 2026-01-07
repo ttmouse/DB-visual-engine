@@ -21,11 +21,53 @@ export interface DocCategory {
 
 export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
     {
+        title: "更新日志 (Changelog)",
+        articles: [
+            {
+                id: "changelog",
+                title: "版本更新",
+                icon: "History",
+                content: `
+
+## v2.6.0 (2026-01-07)
+
+### 新增功能
+- 新增**更新日志**板块，方便查看版本更新内容
+- 优化了图片缩略图生成机制，提升加载性能
+- 支持批量生成图片（1张、2张或4张）
+
+### 问题修复
+- 修复了拖拽上传图片时偶尔失效的问题
+- 修复了 API 错误提示不够明确的问题
+
+### 改进优化
+- 优化了历史记录的存储结构
+- 提升了整体界面响应速度
+
+---
+
+## v2.5.0
+
+### 新增功能
+- 新增智能提及功能（@ 原图 / @ 生成图）
+- 新增 Official API 模式支持
+
+### 问题修复
+- 修复了聊天面板布局问题
+
+---
+
+*更多历史版本请查看项目仓库的 Release 页面*
+`
+            }
+        ]
+    },
+    {
         title: "新手入门 (Getting Started)",
         articles: [
             {
                 id: "quick-start",
-                title: "⚡️ 快速开始",
+                title: "快速开始",
                 icon: "Play",
                 content: `
 
@@ -53,10 +95,10 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
 图片上传后，点击底部的 **"开始分析" (Start Pipeline)** 按钮。
 系统会自动启动 4 个智能 Agent 对图片进行深度解构：
 
-- 🔍 **审核员**：检查图片内容
-- 📝 **描述员**：提取视觉元素
-- 🏗️ **架构师**：分析构图结构
-- 🎨 **合成师**：生成绘画提示词
+- **审核员**：检查图片内容
+- **描述员**：提取视觉元素
+- **架构师**：分析构图结构
+- **合成师**：生成绘画提示词
 
 ### 4. 获取提示词 (Get Prompt)
 
@@ -68,7 +110,7 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
             },
             {
                 id: "core-concepts",
-                title: "🧩 核心概念",
+                title: "核心概念",
                 icon: "Compass",
                 content: `
 
@@ -103,7 +145,7 @@ UnImage 并非单一模型，而是一个 **Agent 团队**：
         articles: [
             {
                 id: "reverse-pipeline",
-                title: "🔄 逆向流水线",
+                title: "逆向流水线",
                 icon: "RefreshCw",
                 content: `
 
@@ -113,7 +155,7 @@ UnImage 并非单一模型，而是一个 **Agent 团队**：
 适合：需要高精度还原、复杂构图的图片。
 
 ### 快速逆向 (Quick Reverse)
-在生成按钮旁点击 **⚡️ (闪电图标)**。
+在生成按钮旁点击闪电图标。
 跳过部分深度分析步骤，仅提取核心视觉特征。
 适合：快速获取灵感、简单图片的分析。
 
@@ -124,7 +166,7 @@ UnImage 并非单一模型，而是一个 **Agent 团队**：
             },
             {
                 id: "prompt-studio",
-                title: "🎨 提示词工作室",
+                title: "提示词工作室",
                 icon: "Edit2",
                 content: `
 
@@ -142,7 +184,7 @@ UnImage 并非单一模型，而是一个 **Agent 团队**：
             },
             {
                 id: "image-gen",
-                title: "🖼️ 图像生成",
+                title: "图像生成",
                 icon: "Image",
                 content: `
 
@@ -166,7 +208,7 @@ UnImage 内置了高性能生成引擎，让您能立即验证 Prompt 的效果�
         articles: [
             {
                 id: "ref-style",
-                title: "🎭 风格与参考图",
+                title: "风格与参考图",
                 icon: "ScanEye",
                 content: `
 
@@ -187,7 +229,7 @@ UnImage 内置了高性能生成引擎，让您能立即验证 Prompt 的效果�
 
             {
                 id: "qa-fix",
-                title: "✅ 质检与修复",
+                title: "质检与修复",
                 icon: "ShieldCheck",
                 content: `
 

@@ -1,4 +1,3 @@
-
 /**
  * [INPUT]: 依赖 lucide-react 图标库
  * [OUTPUT]: 导出 Icons 对象，统一管理系统图标
@@ -6,6 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
+import React from 'react';
 import {
     ShieldCheck,
     Eye,
@@ -55,57 +55,64 @@ import {
     ArrowUp,
     Info,
     StopCircle,
-    LayoutGrid
+    LayoutGrid,
+    LucideProps
 } from 'lucide-react';
 
+const createIcon = (Icon: React.ComponentType<LucideProps>) => {
+    const ThinIcon = (props: LucideProps) => <Icon strokeWidth={1.5} {...props} />;
+    ThinIcon.displayName = `Thin${Icon.displayName || Icon.name || 'Icon'}`;
+    return ThinIcon;
+};
+
 export const Icons = {
-    ShieldCheck,
-    Eye,
-    Compass,
-    PenTool,
-    ScanEye,
-    Film,
-    CheckCircle2,
-    RefreshCw,
-    Clock,
-    Key,
-    ChevronRight,
-    Sparkles,
-    Help: HelpCircle,
-    X,
-    Play,
-    Maximize,
-    Upload,
-    Languages,
-    Image,
-    History,
-    Plus,
-    CheckSquare,
-    Wand2,
-    Settings,
-    Link,
-    AlertCircle,
-    Activity,
-    Save,
-    Cpu,
-    ArrowRight,
-    ChevronDown,
-    Check,
-    Edit2,
-    Copy,
-    Trash2,
-    CheckCircle: CheckCircle2,
-    Globe,
-    Server,
-    ChevronUp,
-    ArrowLeft,
-    Volume2,
-    VolumeX,
-    ArrowLeftRight,
-    Download,
-    MessageSquare,
-    ArrowUp,
-    Info,
-    StopCircle,
-    LayoutGrid
+    ShieldCheck: createIcon(ShieldCheck),
+    Eye: createIcon(Eye),
+    Compass: createIcon(Compass),
+    PenTool: createIcon(PenTool),
+    ScanEye: createIcon(ScanEye),
+    Film: createIcon(Film),
+    CheckCircle2: createIcon(CheckCircle2),
+    RefreshCw: createIcon(RefreshCw),
+    Clock: createIcon(Clock),
+    Key: createIcon(Key),
+    ChevronRight: createIcon(ChevronRight),
+    Sparkles: createIcon(Sparkles),
+    Help: createIcon(HelpCircle),
+    X: createIcon(X),
+    Play: createIcon(Play),
+    Maximize: createIcon(Maximize),
+    Upload: createIcon(Upload),
+    Languages: createIcon(Languages),
+    Image: createIcon(Image),
+    History: createIcon(History),
+    Plus: createIcon(Plus),
+    CheckSquare: createIcon(CheckSquare),
+    Wand2: createIcon(Wand2),
+    Settings: createIcon(Settings),
+    Link: createIcon(Link),
+    AlertCircle: createIcon(AlertCircle),
+    Activity: createIcon(Activity),
+    Save: createIcon(Save),
+    Cpu: createIcon(Cpu),
+    ArrowRight: createIcon(ArrowRight),
+    ChevronDown: createIcon(ChevronDown),
+    Check: createIcon(Check),
+    Edit2: createIcon(Edit2),
+    Copy: createIcon(Copy),
+    Trash2: createIcon(Trash2),
+    CheckCircle: createIcon(CheckCircle2),
+    Globe: createIcon(Globe),
+    Server: createIcon(Server),
+    ChevronUp: createIcon(ChevronUp),
+    ArrowLeft: createIcon(ArrowLeft),
+    Volume2: createIcon(Volume2),
+    VolumeX: createIcon(VolumeX),
+    ArrowLeftRight: createIcon(ArrowLeftRight),
+    Download: createIcon(Download),
+    MessageSquare: createIcon(MessageSquare),
+    ArrowUp: createIcon(ArrowUp),
+    Info: createIcon(Info),
+    StopCircle: createIcon(StopCircle),
+    LayoutGrid: createIcon(LayoutGrid)
 };

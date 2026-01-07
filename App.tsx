@@ -24,6 +24,7 @@ import { saveCurrentTask, loadCurrentTask, clearCurrentTask } from './services/c
 import { runLazyMigration } from './services/migrationService';
 import { soundService } from './services/soundService';
 import { usePipelineProgress } from './hooks/usePipelineProgress';
+import { I18nProvider, useI18n } from './hooks/useI18n';
 import { PipelineProgressView } from './components/PipelineProgressView';
 import { AGENTS, PIPELINE_ORDER } from './constants';
 import { AgentRole, AppState, HistoryItem, ChatMessage, PipelineStepStatus, ReferenceImage } from './types';
@@ -87,6 +88,7 @@ const getOriginalFromHistory = (history: HistoryItem[], index: number): string =
 };
 
 const App: React.FC = () => {
+  const { language, t, setLanguage } = useI18n();
   const [showLanding, setShowLanding] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const [state, setState] = useState<AppState>(INITIAL_STATE);
@@ -258,7 +260,7 @@ const App: React.FC = () => {
       }), {} as typeof prev.results)
     }));
     isPipelineRunning.current = false;
-    showToast("操作已终止", "info");
+    showToast(t('toast.operationStopped'), "info");
   };
 
   // 流水线进度管理
@@ -500,9 +502,9 @@ const App: React.FC = () => {
     setActiveTab('STUDIO');
     isPipelineRunning.current = false;
 
-    // Notify user if prompt was extracted
+      // Notify user if prompt was extracted
     if (extractedPrompt) {
-      showToast('📋 已从图片中提取提示词', 'success');
+      showToast(t('toast.promptExtracted'), 'success');
     }
   };
 
@@ -530,10 +532,10 @@ const App: React.FC = () => {
     try {
       const boxes = await detectLayout(state.image);
       setState(prev => ({ ...prev, layoutData: boxes, isAnalyzingLayout: false }));
-      showToast("蓝图解构完成", "success");
+      showToast(t('toast.layoutComplete'), "success");
     } catch (e) {
       setState(prev => ({ ...prev, isAnalyzingLayout: false }));
-      showToast("布局分析失败", "error");
+      showToast(t('toast.layoutFailed'), "error");
     }
   };
 
@@ -1228,27 +1230,26 @@ const App: React.FC = () => {
         <div className="flex flex-col h-full bg-stone-900 relative">
           {/* Header */}
           <div className="px-6 pt-5 pb-3 border-b border-stone-800 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-stone-300 text-base font-serif">Prompt Studio</h3>
-                <p className="text-[10px] text-stone-500 font-medium uppercase mt-0.5">提示词编辑器</p>
-              </div>
+             <div className="flex items-center justify-between">
+               <div>
+                 <h3 className="font-bold text-stone-300 text-base font-serif">{t('panel.promptStudio')}</h3>
+                 <p className="text-[10px] text-stone-500 font-medium uppercase mt-0.5">{t('panel.promptEditor')}</p>
+               </div>
 
-              {/* 模式切换器 */}
-              <div className="flex items-center gap-1 bg-stone-800 rounded-lg p-1">
-                <button
-                  onClick={() => setReverseMode('full')}
-                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'full' ? 'bg-stone-600 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
-                >
-                  完整分析
-                </button>
-                <button
-                  onClick={() => setReverseMode('quick')}
-                  className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'quick' ? 'bg-stone-600 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
-                >
-                  快速逆向
-                </button>
-              </div>
+               <div className="flex items-center gap-1 bg-stone-800 rounded-lg p-1">
+                 <button
+                   onClick={() => setReverseMode('full')}
+                   className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'full' ? 'bg-stone-600 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
+                 >
+                   {t('studio.mode.full')}
+                 </button>
+                 <button
+                   onClick={() => setReverseMode('quick')}
+                   className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${reverseMode === 'quick' ? 'bg-stone-600 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
+                 >
+                   {t('studio.mode.quick')}
+                 </button>
+               </div>
               {/* Version Selector - Custom Dropdown */}
               <div className="relative">
                 <button
@@ -1525,12 +1526,11 @@ const App: React.FC = () => {
                   }}
                   disabled={!state.image || state.isProcessing}
                   className="flex-1 py-2 bg-stone-800 text-stone-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-stone-700 transition-all border border-stone-700 whitespace-nowrap px-3 min-w-fit"
-                  title={reverseMode === 'quick' ? '快速单步逆向' : '完整4步分析'}
+                  title={reverseMode === 'quick' ? t('reverse.quick.title') : t('reverse.full.title')}
                 >
                   <Icons.Sparkles size={14} />
-                  逆向
+                  {t('studio.reverse')}
                 </button>
-                {/* 生成图片按钮组 - 带数量选择菜单 */}
                 <div className="relative flex-1 flex min-w-fit">
                   <button
                     onClick={() => handleGenerateImage(undefined, generateCount)}
@@ -1538,7 +1538,7 @@ const App: React.FC = () => {
                     className="flex-1 px-3 py-2 bg-stone-100 text-black rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap"
                   >
                     {state.isGeneratingImage ? <Icons.RefreshCw size={14} className="animate-spin" /> : <Icons.Play size={14} />}
-                    生成{generateCount > 1 ? ` ${generateCount}` : ''}
+                    {generateCount > 1 ? t('studio.generate.multiple', { count: generateCount }) : t('studio.generate')}
                   </button>
                   <button
                     onClick={() => setIsGenerateMenuOpen(!isGenerateMenuOpen)}
@@ -1569,23 +1569,23 @@ const App: React.FC = () => {
                   )}
                 </div>
               </div>
-              <button
-                onClick={() => { navigator.clipboard.writeText(state.editablePrompt); showToast('已复制', 'success'); }}
-                disabled={!state.editablePrompt}
-                className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0"
-                title="复制提示词"
-              >
-                <Icons.Copy size={14} />
-                复制
-              </button>
-              <button
-                onClick={() => setIsChatDrawerOpen(!isChatDrawerOpen)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all flex-shrink-0 ${isChatDrawerOpen ? 'bg-amber-900/30 text-amber-400' : 'bg-stone-800 text-stone-500 hover:text-stone-300'}`}
-                title="历史记录"
-              >
-                <Icons.MessageSquare size={14} />
-                历史
-              </button>
+               <button
+                 onClick={() => { navigator.clipboard.writeText(state.editablePrompt); showToast(t('toast.copied'), 'success'); }}
+                 disabled={!state.editablePrompt}
+                 className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0"
+                 title={t('studio.copy')}
+               >
+                 <Icons.Copy size={14} />
+                 {t('studio.copy')}
+               </button>
+               <button
+                 onClick={() => setIsChatDrawerOpen(!isChatDrawerOpen)}
+                 className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all flex-shrink-0 ${isChatDrawerOpen ? 'bg-amber-900/30 text-amber-400' : 'bg-stone-800 text-stone-500 hover:text-stone-300'}`}
+                 title={t('studio.chat')}
+               >
+                 <Icons.MessageSquare size={14} />
+                 {t('studio.chat')}
+               </button>
             </div>
 
             {/* AI Input Area - Two Row Layout */}
@@ -1872,6 +1872,16 @@ const App: React.FC = () => {
         <div className="flex items-center gap-2">
           <StorageIndicator />
           <button onClick={() => setIsPromptLabOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-amber-500 transition-all" title="Prompt Lab"><Icons.Wand2 size={20} /></button>
+          <button
+            onClick={() => {
+              const newLang = language === 'CN' ? 'EN' : 'CN';
+              setLanguage(newLang);
+            }}
+            className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-orange-500 transition-all"
+            title={language === 'CN' ? 'Switch Language' : '切换语言'}
+          >
+            <Icons.Globe size={20} />
+          </button>
           <button onClick={() => setIsGalleryOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-violet-500 transition-all" title="相册"><Icons.LayoutGrid size={20} /></button>
           <button onClick={() => setIsHelpOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-orange-500 transition-all" title="帮助文档"><Icons.Help size={20} /></button>
           <button
@@ -1881,24 +1891,24 @@ const App: React.FC = () => {
               soundService.setEnabled(newState);
             }}
             className={`p-2.5 rounded-full hover:bg-stone-800 transition-all ${soundEnabled ? 'text-blue-500' : 'text-stone-500'}`}
-            title={soundEnabled ? '音效已启用' : '音效已关闭'}
+            title={soundEnabled ? t('nav.sound.enabled') : t('nav.sound.disabled')}
           >
             {soundEnabled ? <Icons.Volume2 size={20} /> : <Icons.VolumeX size={20} />}
           </button>
           <div className="w-px h-6 bg-stone-800 mx-1" />
           <div className="flex items-center gap-2 mr-2">
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${apiMode === 'official' ? 'border-orange-500/30 text-orange-500' : 'border-blue-500/30 text-blue-500'}`}>
-              {apiMode === 'official' ? 'OFFICIAL' : 'CUSTOM'}
+              {apiMode === 'official' ? t('api.official') : t('api.custom')}
             </span>
           </div>
-          <button onClick={handleSelectKey} className={`p-2.5 rounded-full hover:bg-stone-800 ${hasKey ? 'text-emerald-500' : 'text-stone-500'}`} title="API Key 状态"><Icons.Key size={20} /></button>
+          <button onClick={handleSelectKey} className={`p-2.5 rounded-full hover:bg-stone-800 ${hasKey ? 'text-emerald-500' : 'text-stone-500'}`} title={t('api.keyStatus')}><Icons.Key size={20} /></button>
         </div>
       </nav>
 
       <main ref={mainRef} className={`fixed top-24 bottom-28 left-8 right-8 max-w-[1920px] mx-auto flex gap-0 z-0 ${(isDraggingDivider || isDraggingRightDivider) ? 'select-none' : ''}`}>
         {/* Left Panel: Assets & References */}
         <div style={{ width: `${leftPanelWidth}%` }} className="flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
-          <PanelHeader title="Visual Assets">
+          <PanelHeader title={t('panel.visualAssets')}>
             <div className="flex items-center gap-2">
               {state.generatedImages.length > 0 && (
                 <>
