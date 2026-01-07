@@ -1804,6 +1804,12 @@ const App: React.FC = () => {
     );
   };
 
+  const handleGalleryEdit = (index: number) => {
+    loadHistoryItem(index);
+    setIsGalleryOpen(false);
+    setActiveTab('STUDIO');
+  };
+
   if (showLanding) return <LandingPage onEnterApp={() => setShowLanding(false)} hasKey={hasKey} onSelectKey={handleSelectKey} />;
 
   return (
@@ -1826,6 +1832,7 @@ const App: React.FC = () => {
           setIsGalleryOpen(false);
         }}
         onDownload={handleDownloadHD}
+        onEdit={handleGalleryEdit}
       />
 
       {/* Global Drag Overlay Removed */}
