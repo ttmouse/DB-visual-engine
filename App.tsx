@@ -58,7 +58,7 @@ const INITIAL_STATE: AppState = {
   generatedImage: null, generatedImages: [], isGeneratingImage: false,
   editablePrompt: '', promptHistory: [], currentPromptIndex: 0, isRefiningPrompt: false,
   useReferenceImage: false, isTemplatizing: false, detectedAspectRatio: "1:1",
-  videoAnalysisDuration: null, isRefining: false, history: [], isHistoryOpen: false,
+  videoAnalysisDuration: null, isRefining: false, history: [],
   isVersionDropdownOpen: false,
   layoutData: null, isAnalyzingLayout: false,
   suggestions: [], selectedSuggestionIndices: [],
@@ -1857,7 +1857,6 @@ const App: React.FC = () => {
           <button onClick={() => setIsPromptLabOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-amber-500 transition-all" title="Prompt Lab"><Icons.Wand2 size={20} /></button>
           <button onClick={() => setIsGalleryOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-violet-500 transition-all" title="相册"><Icons.LayoutGrid size={20} /></button>
           <button onClick={() => setIsHelpOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-orange-500 transition-all" title="帮助文档"><Icons.Help size={20} /></button>
-          <button onClick={() => setState(prev => ({ ...prev, isHistoryOpen: true }))} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-stone-200 transition-all" title="历史记录"><Icons.History size={20} /></button>
           <button
             onClick={() => {
               const newState = !soundEnabled;
@@ -2092,90 +2091,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Third Column: History Panel (inline, not overlay) */}
-        {state.isHistoryOpen && (
-          <>
-            {/* Draggable Divider for right panel */}
-            <div
-              onMouseDown={() => setIsDraggingRightDivider(true)}
-              className={`w-2 cursor-col-resize flex items-center justify-center group hover:bg-stone-700/50 transition-colors ${isDraggingRightDivider ? 'bg-orange-500/30' : ''}`}
-            >
-              <div className={`w-0.5 h-12 rounded-full transition-colors ${isDraggingRightDivider ? 'bg-orange-500' : 'bg-stone-700 group-hover:bg-stone-500'}`} />
-            </div>
 
-            {/* History Column */}
-            <div style={{ width: `${rightPanelWidth}px` }} className="flex-shrink-0 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
-              <PanelHeader title="历史记录">
-                <button
-                  onClick={() => setState(prev => ({ ...prev, isHistoryOpen: false }))}
-                  className="p-1.5 text-stone-500 hover:text-stone-300 transition-colors rounded-lg hover:bg-stone-800"
-                  title="关闭"
-                >
-                  <Icons.X size={14} />
-                </button>
-              </PanelHeader>
-
-              <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
-                {state.history.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-stone-600 space-y-3">
-                    <Icons.Image size={40} strokeWidth={1} />
-                    <p className="text-xs">暂无生成记录</p>
-                  </div>
-                ) : (
-                  state.history.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-stone-950 rounded-xl p-3 space-y-2 hover:bg-stone-800 transition-colors cursor-pointer group border border-stone-800"
-                      onClick={() => {
-                        setState(prev => ({
-                          ...prev,
-                          editablePrompt: item.prompt,
-                          promptCache: { ...prev.promptCache, CN: item.prompt }
-                        }));
-                        setActiveTab('STUDIO');
-                        if (item.generatedImage) {
-                          setFullscreenImg(getImageSrc(item.generatedImage));
-                        }
-                      }}
-                    >
-                      {/* Images Row */}
-                      <div className="flex gap-2">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden border border-stone-700 flex-shrink-0">
-                          <img
-                            src={getImageSrc(item.originalImage, item.mimeType)}
-                            alt="Original"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex items-center text-stone-600">
-                          <Icons.ArrowRight size={12} />
-                        </div>
-                        <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-orange-900/50 flex-shrink-0">
-                          {item.generatedImage ? (
-                            <img
-                              src={getImageSrc(item.generatedImage)}
-                              alt="Generated"
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-stone-800 flex items-center justify-center text-stone-600">
-                              <Icons.Image size={16} />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-stone-400 line-clamp-2 leading-relaxed">{item.prompt}</p>
-                      <div className="flex items-center gap-1 text-[9px] text-stone-600">
-                        <Icons.Clock size={8} />
-                        {new Date(item.timestamp).toLocaleString('zh-CN')}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </>
-        )}
         {/* Third Column: Chat Panel (inline, not overlay) */}
         {isChatDrawerOpen && (
           <>
