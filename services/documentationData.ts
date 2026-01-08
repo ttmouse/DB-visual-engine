@@ -43,6 +43,17 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
                 titleEN: "Release Notes",
                 icon: "History",
                 contentCN: `
+## v2.7.1 (2026-01-08)
+
+### 新增功能
+- 相册模式支持**删除图片**和快速**添加到对比模式**
+- 在AI输入框**粘贴图片**可自动添加到参考区域
+- **@按钮**始终显示，无图片时显示禁用状态
+
+### 改进优化
+- 优化了相册图片操作按钮的布局和交互
+- 改善了右键菜单的功能一致性
+
 ## v2.7.0 (2026-01-08)
 
 ### 新增功能
@@ -83,6 +94,17 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
 *更多历史版本请查看项目仓库的 Release 页面*
 `,
                 contentEN: `
+## v2.7.1 (2026-01-08)
+
+### New Features
+- Gallery mode now supports **deleting images** and quick **add to comparison mode**
+- **Pasting images** in AI input field automatically adds them to reference area
+- **@button** is now always visible, shows disabled state when no images available
+
+### Improvements
+- Optimized gallery image action buttons layout and interaction
+- Improved right-click menu functionality consistency
+
 ## v2.7.0 (2026-01-08)
 
 ### New Features
