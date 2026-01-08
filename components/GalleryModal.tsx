@@ -9,6 +9,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Icons } from './Icons';
 import { HistoryItem } from '../types';
 import { useI18n } from '../hooks/useI18n';
+import { ImageDetailViewer } from './ImageDetailViewer';
 
 interface GalleryModalProps {
     isOpen: boolean;
