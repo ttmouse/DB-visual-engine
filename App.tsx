@@ -6,7 +6,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 CLAUDE.md
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useTransition } from 'react';
 import ReactDOM from 'react-dom';
 import { ImageUploader } from './components/ImageUploader';
 import { AgentCard } from './components/AgentCard';
@@ -98,6 +98,7 @@ const getOriginalFromHistory = (history: HistoryItem[], index: number): string =
 
 const App: React.FC = () => {
   const { language, t, setLanguage } = useI18n();
+  const [isPending, startTransition] = useTransition(); // 用于非阻塞状态更新
   const [showLanding, setShowLanding] = useState(false);
   const [hasKey, setHasKey] = useState(false);
   const [state, setState] = useState<AppState>(INITIAL_STATE);
@@ -454,9 +455,9 @@ const App: React.FC = () => {
     setSelectedHistoryIndex(index);
     setDisplayImage(getImageSrc(historyItem.originalImage, historyItem.mimeType));
 
-    // 3. Restore state (Deferred Update)
-    // 将繁重的数据恢复操作延迟到下一帧，避免阻塞 UI 响应
-    requestAnimationFrame(() => {
+    // 3. Restore state (Deferred Update using startTransition)
+    // 使用 startTransition 标记为低优先级更新，确保 UI 响应流畅
+    startTransition(() => {
       setState(prev => ({
         ...prev,
         editablePrompt: historyItem.prompt,
@@ -2175,7 +2176,7 @@ const App: React.FC = () => {
           const imgUrl = getOriginalFromHistory(state.history, index);
           setDisplayImage(imgUrl);
           setIsComparisonMode(true);
-          showToast(t('gallery.addedToComparisonLeft'), 'success');
+          // showToast(t('gallery.addedToComparisonLeft'), 'success'); // 不需要提示，避免遮挡
         }}
       />
 
@@ -2531,7 +2532,7 @@ const App: React.FC = () => {
                     const imgUrl = getOriginalFromHistory(state.history, index);
                     setDisplayImage(imgUrl);
                     setIsComparisonMode(true);
-                    showToast(t('gallery.addedToComparisonLeft'), 'success');
+                    // showToast(t('gallery.addedToComparisonLeft'), 'success'); // 不需要提示，避免遮挡
                   }}
                 />
               </div>
