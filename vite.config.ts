@@ -9,6 +9,16 @@ export default defineConfig(({ mode }) => {
       port: 3005,
       host: '0.0.0.0',
       proxy: {
+        '/api/volcengine-models': {
+          target: 'https://ark.ap-southeast.bytepluses.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/volcengine-models/, '/api/v3/models')
+        },
+        '/api/volcengine-chat': {
+          target: 'https://ark.ap-southeast.bytepluses.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/volcengine-chat/, '/api/v3/chat/completions')
+        },
         '/api/volcengine': {
           target: 'https://ark.ap-southeast.bytepluses.com',
           changeOrigin: true,

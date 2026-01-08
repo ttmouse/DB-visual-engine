@@ -175,6 +175,130 @@ const getClient = () => {
   return ai;
 };
 
+// Helper: Ensure config is loaded from localStorage before mode checks
+// This is needed for functions that check currentConfig.mode before calling getClient()
+const ensureConfigLoaded = () => {
+  if (currentConfig.apiKey) return; // Already configured
+
+  const storedUrl = localStorage.getItem('berryxia_base_url');
+  const storedMode = (localStorage.getItem('berryxia_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine';
+
+  let storedKey = '';
+  if (storedMode === 'official') storedKey = localStorage.getItem('berryxia_api_key_official') || localStorage.getItem('berryxia_api_key') || '';
+  else if (storedMode === 'volcengine') storedKey = localStorage.getItem('berryxia_api_key_volcengine') || '';
+  else storedKey = localStorage.getItem('berryxia_api_key_custom') || localStorage.getItem('berryxia_api_key') || '';
+
+  if (storedKey) {
+    // Only update currentConfig, don't initialize Google client for Volcengine
+    currentConfig = { apiKey: storedKey, baseUrl: storedUrl || '', mode: storedMode };
+  }
+};
+
+// Volcengine Vision API Helper
+// Uses Doubao-1.5-vision-pro for multimodal image understanding
+async function volcengineVisionCall(
+  imageBase64: string,
+  prompt: string,
+  mimeType: string = "image/png"
+): Promise<string> {
+  const cleanImage = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+
+  const response = await fetch("/api/volcengine-chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${currentConfig.apiKey}`
+    },
+    body: JSON.stringify({
+      // Use user-selected vision model from localStorage, with fallback to default
+      model: localStorage.getItem('berryxia_model_vision') || "seed-1-6-250915",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${cleanImage}`,
+              detail: "high"
+            }
+          }
+        ]
+      }],
+      max_tokens: 4096
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Volcengine Vision Error ${response.status}: ${errText}`);
+  }
+
+  const data = await response.json();
+
+  if (data.choices && data.choices.length > 0) {
+    return data.choices[0].message?.content || "";
+  }
+
+  throw new Error("No response from Volcengine Vision API");
+}
+
+// Volcengine Models API Helper
+// Lists available models for the current API key
+export async function listVolcengineModels(): Promise<{ id: string; type: string }[]> {
+  ensureConfigLoaded();
+
+  if (currentConfig.mode !== 'volcengine' || !currentConfig.apiKey) {
+    return [];
+  }
+
+  try {
+    const response = await fetch("/api/volcengine-models", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${currentConfig.apiKey}`
+      }
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch Volcengine models:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+
+    if (data.data && Array.isArray(data.data)) {
+      // Categorize models by their prefix
+      return data.data.map((m: any) => {
+        let type = 'other';
+        const id = m.id.toLowerCase();
+
+        if (id.startsWith('seedream') || id.startsWith('seededit')) {
+          type = 'image';
+        } else if (id.startsWith('seedance')) {
+          type = 'video';
+        } else if (id.includes('embedding')) {
+          type = 'embedding';
+        } else if (id.includes('vision') || id.includes('skylark-vision')) {
+          type = 'vision';
+        } else if (id.startsWith('seed-') || id.includes('flash') || id.includes('pro')) {
+          // seed-* models (like seed-1-6) are multimodal, can be used for vision
+          type = 'multimodal';
+        } else if (id.startsWith('skylark')) {
+          type = 'text';
+        }
+
+        return { id: m.id, type };
+      });
+    }
+
+    return [];
+  } catch (error) {
+    console.error("Error listing Volcengine models:", error);
+    return [];
+  }
+}
+
 // Helper: Get agent prompt from promptManager
 export const getAgentPrompt = (role: AgentRole): string => {
   return promptManager.getActivePromptContent(role, AGENTS[role].systemInstruction);
@@ -401,11 +525,13 @@ export async function generateImageFromPrompt(
   mimeType: string = "image/jpeg",
   signal?: AbortSignal
 ): Promise<string | null> {
-  const client = getClient(); // Ensure config is loaded before mode check
+  ensureConfigLoaded(); // Ensure config is loaded before mode check
 
   // VOLCENGINE LOGIC
   if (currentConfig.mode === 'volcengine') {
-    const modelId = modelConfig.image || 'seedream-4-5-251128'; // Default fallback
+    // Use overseas Volcengine image models (AP-Southeast endpoint)
+    // seedream-4-5 is the latest and best quality model
+    const modelId = modelConfig.image || 'seedream-4-5-251128';
     // Use proxy endpoint for both dev and production to bypass CORS
     const endpoint = "/api/volcengine";
 
@@ -443,23 +569,53 @@ export async function generateImageFromPrompt(
     else if (finalRatioStr === '4:3') { width = 2304; height = 1728; }
     else if (finalRatioStr === '3:4') { width = 1728; height = 2304; }
 
+    // Format reference image for Volcengine API
+    const formatImageForVolcengine = (imageData: string, imgMimeType: string): string => {
+      // If already a complete data URL, return as-is
+      if (imageData.startsWith('data:image/')) {
+        return imageData;
+      }
+      // If a URL, return as-is
+      if (imageData.startsWith('http')) {
+        return imageData;
+      }
+      // Otherwise, assume raw Base64 and add prefix
+      return `data:${imgMimeType};base64,${imageData}`;
+    };
+
+    // Prepare reference images array if provided
+    let volcengineImages: string[] | undefined;
+    if (refImage) {
+      const cleanRef = refImage.replace(/^data:image\/\w+;base64,/, "");
+      volcengineImages = [formatImageForVolcengine(cleanRef, mimeType)];
+      console.log(`[Volcengine] Including 1 reference image for I2I generation`);
+    }
+
     try {
+      // Build request body
+      const requestBody: Record<string, any> = {
+        model: modelId,
+        prompt: promptContext,
+        size: `${width}x${height}`,
+        guidance_scale: 2.5,
+        response_format: "b64_json",
+        sequential_image_generation: "disabled",
+        stream: false,
+        watermark: false
+      };
+
+      // Add reference images if present (I2I / Mixed mode)
+      if (volcengineImages && volcengineImages.length > 0) {
+        requestBody.image = volcengineImages;
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${currentConfig.apiKey}`
         },
-        body: JSON.stringify({
-          model: modelId,
-          prompt: promptContext,
-          size: `${width}x${height}`,
-          guidance_scale: 2.5,
-          response_format: "b64_json",
-          sequential_image_generation: "disabled",
-          stream: false,
-          watermark: false
-        }),
+        body: JSON.stringify(requestBody),
         signal
       });
 
@@ -547,6 +703,8 @@ export async function generateImageFromPrompt(
   try {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
+    // For Google modes, get the client
+    const client = getClient();
     let response;
 
     // Build generation config for official mode
@@ -619,22 +777,32 @@ export async function executeReverseEngineering(
   promptScript: string = SINGLE_STEP_REVERSE_PROMPT,
   signal?: AbortSignal
 ): Promise<ReverseEngineeringResult | null> {
-  const client = getClient();
-  const modelId = modelConfig.reasoning;
-
+  ensureConfigLoaded(); // Ensure config is loaded before mode check
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
   try {
-    const cleanImage = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-    const response = await client.models.generateContent({
-      model: modelId,
-      contents: [
-        { inlineData: { mimeType, data: cleanImage } },
-        promptScript
-      ]
-    });
+    let content = "";
 
-    const content = response.text || "";
+    // VOLCENGINE MODE: Use Doubao Vision API
+    if (currentConfig.mode === 'volcengine') {
+      console.log("[Volcengine] Executing reverse engineering with Doubao Vision");
+      content = await volcengineVisionCall(imageBase64, promptScript, mimeType);
+    } else {
+      // GOOGLE MODE: Use Gemini API
+      const client = getClient();
+      const modelId = modelConfig.reasoning;
+
+      const cleanImage = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      const response = await client.models.generateContent({
+        model: modelId,
+        contents: [
+          { inlineData: { mimeType, data: cleanImage } },
+          promptScript
+        ]
+      });
+      content = response.text || "";
+    }
+
     // Clean JSON block
     const cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleanContent) as ReverseEngineeringResult;

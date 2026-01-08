@@ -1,6 +1,14 @@
 {
     "rewrites": [
         {
+            "source": "/api/volcengine-models",
+            "destination": "/api/volcengine-models"
+        },
+        {
+            "source": "/api/volcengine-chat",
+            "destination": "/api/volcengine-chat"
+        },
+        {
             "source": "/api/volcengine/:path*",
             "destination": "/api/volcengine"
         },

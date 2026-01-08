@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Icons } from './Icons';
-import { configureClient, configureModels } from '../services/geminiService';
+import { configureClient, configureModels, listVolcengineModels } from '../services/geminiService';
 import { GoogleGenAI } from '@google/genai';
 
 interface ApiKeyModalProps {
@@ -35,6 +35,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMsg, setStatusMsg] = useState('');
   const [activeTab, setActiveTab] = useState<'connection' | 'models'>('connection');
+
+  // Volcengine model discovery
+  const [availableModels, setAvailableModels] = useState<{ id: string; type: string }[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [visionModel, setVisionModel] = useState('seed-1-6-250915');
 
   useEffect(() => {
     if (isOpen) {
@@ -75,9 +80,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
       const r = localStorage.getItem('berryxia_model_reasoning') || defaultReasoning;
       const f = localStorage.getItem('berryxia_model_fast') || defaultFast;
       const i = localStorage.getItem('berryxia_model_image') || defaultImage;
+      const v = localStorage.getItem('berryxia_model_vision') || 'seed-1-6-250915';
       setReasoningModel(r);
       setFastModel(f);
       setImageModel(i);
+      setVisionModel(v);
     }
   }, [isOpen]);
 
@@ -174,6 +181,36 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
     }
   };
 
+  // Fetch available models for Volcengine
+  const handleFetchModels = async () => {
+    if (!volcengineKey) {
+      setStatus('error');
+      setStatusMsg('请先输入火山引擎 API Key');
+      return;
+    }
+    setIsLoadingModels(true);
+    setStatus('idle');
+    try {
+      // Temporarily configure to allow the API call
+      configureClient(volcengineKey, '', 'volcengine');
+      const models = await listVolcengineModels();
+      setAvailableModels(models);
+      if (models.length > 0) {
+        setStatus('success');
+        setStatusMsg(`发现 ${models.length} 个可用模型`);
+      } else {
+        setStatus('error');
+        setStatusMsg('未找到可用模型');
+      }
+    } catch (e: any) {
+      console.error(e);
+      setStatus('error');
+      setStatusMsg(`获取模型失败: ${e.message || '未知错误'}`);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
   const handleSave = () => {
     if (apiMode === 'custom' && !baseUrl) return;
     // Note: We allow saving even if one key is empty, as long as the current mode's key is valid? 
@@ -195,6 +232,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
     localStorage.setItem('berryxia_model_reasoning', reasoningModel);
     localStorage.setItem('berryxia_model_fast', fastModel);
     localStorage.setItem('berryxia_model_image', imageModel);
+    localStorage.setItem('berryxia_model_vision', visionModel);
 
     configureClient(currentKey, baseUrl, apiMode);
     configureModels({ reasoning: reasoningModel, fast: fastModel, image: imageModel });
@@ -330,6 +368,59 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
 
           {activeTab === 'models' && (
             <div className="space-y-4">
+              {/* Volcengine Model Discovery */}
+              {apiMode === 'volcengine' && (
+                <div className="p-3 bg-blue-900/20 border border-blue-800 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-blue-400">
+                      <Icons.Zap size={14} />
+                      <span className="text-xs font-bold">火山引擎模型发现</span>
+                    </div>
+                    <button
+                      onClick={handleFetchModels}
+                      disabled={isLoadingModels}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isLoadingModels ? <Icons.RefreshCw size={12} className="animate-spin" /> : <Icons.RefreshCw size={12} />}
+                      获取模型列表
+                    </button>
+                  </div>
+
+                  {availableModels.length > 0 && (
+                    <div className="space-y-2">
+                      {/* Image Model Dropdown */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-blue-300">图像生成模型</label>
+                        <select
+                          value={imageModel}
+                          onChange={e => setImageModel(e.target.value)}
+                          className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs font-mono text-stone-200 focus:border-blue-500 outline-none"
+                        >
+                          {availableModels.filter(m => m.type === 'image').map(m => (
+                            <option key={m.id} value={m.id}>{m.id}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Vision Model Dropdown */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-blue-300">视觉理解模型 (逆向)</label>
+                        <select
+                          value={visionModel}
+                          onChange={e => setVisionModel(e.target.value)}
+                          className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs font-mono text-stone-200 focus:border-blue-500 outline-none"
+                        >
+                          {availableModels.filter(m => m.type === 'vision' || m.type === 'multimodal').map(m => (
+                            <option key={m.id} value={m.id}>{m.id} ({m.type})</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Standard Model Config (shown for all modes) */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Reasoning Model</label>
                 <p className="text-[10px] text-stone-600">Used for deep analysis (Agents, Architect, Auditor)</p>
@@ -360,6 +451,20 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                   className="w-full px-4 py-2.5 bg-stone-800 border border-stone-700 rounded-xl text-sm font-mono text-stone-200 focus:border-orange-500 outline-none transition-all"
                 />
               </div>
+
+              {/* Vision Model (only for Volcengine) */}
+              {apiMode === 'volcengine' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-stone-500 uppercase tracking-widest">Vision Model</label>
+                  <p className="text-[10px] text-stone-600">Used for reverse engineering & image analysis</p>
+                  <input
+                    type="text"
+                    value={visionModel}
+                    onChange={e => setVisionModel(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-stone-800 border border-stone-700 rounded-xl text-sm font-mono text-stone-200 focus:border-orange-500 outline-none transition-all"
+                  />
+                </div>
+              )}
             </div>
           )}
 
