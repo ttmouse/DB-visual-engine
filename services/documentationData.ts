@@ -43,6 +43,13 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
                 titleEN: "Release Notes",
                 icon: "History",
                 contentCN: `
+## v2.7.3 (2026-01-08)
+
+### 架构优化
+- 创建统一的**ImageDetailViewer**组件，重构详情视图
+- 编辑模式全屏详情已迁移到新组件
+- 支持单图、对比两种模式，可配置导航和操作按钮
+
 ## v2.7.2 (2026-01-08)
 
 ### 新增功能
@@ -104,6 +111,13 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
 *更多历史版本请查看项目仓库的 Release 页面*
 `,
                 contentEN: `
+## v2.7.3 (2026-01-08)
+
+### Architecture Improvements
+- Created unified **ImageDetailViewer** component, refactored detail views
+- Edit mode fullscreen detail now uses new component
+- Supports single and comparison modes with configurable navigation and action buttons
+
 ## v2.7.2 (2026-01-08)
 
 ### New Features
