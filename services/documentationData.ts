@@ -43,6 +43,16 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
                 titleEN: "Release Notes",
                 icon: "History",
                 contentCN: `
+## v2.7.2 (2026-01-08)
+
+### 新增功能
+- 相册新增**搜索功能**，支持按提示词关键词过滤图片
+- 提示词历史支持**差异预览**，悬停时高亮显示与当前提示词的变化
+- 右键添加对比直接生效，无需二次确认
+
+### 问题修复
+- 修复对比模式逻辑：右键点击现在正确设置左侧对比图，不再改变当前选中项
+
 ## v2.7.1 (2026-01-08)
 
 ### 新增功能
@@ -94,6 +104,16 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
 *更多历史版本请查看项目仓库的 Release 页面*
 `,
                 contentEN: `
+## v2.7.2 (2026-01-08)
+
+### New Features
+- Gallery now has **search functionality**, filter images by prompt keywords
+- Prompt history supports **diff preview**, hover to highlight changes from current prompt
+- Right-click add to comparison now works directly without confirmation
+
+### Bug Fixes
+- Fixed comparison mode logic: right-click now correctly sets left comparison image without changing current selection
+
 ## v2.7.1 (2026-01-08)
 
 ### New Features
