@@ -95,9 +95,10 @@ export const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({
   useEffect(() => {
     if (isOpen && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
+      const menuWidth = 320; // Matches w-[320px] in className
       setMenuPosition({
-        top: rect.top - 8,
-        left: rect.left,
+        top: rect.top - 8, // Keep it above the button with some gap
+        left: rect.left + (rect.width / 2) - (menuWidth / 2), // Center horizontally
       });
     }
   }, [isOpen]);
@@ -137,7 +138,6 @@ export const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({
     size = 1,
     isSelected = false
   }) => {
-    const scale = size;
     return (
       <div
         className={`rounded-sm border transition-all ${isSelected
@@ -145,8 +145,8 @@ export const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({
           : 'border-stone-500 bg-stone-700/50'
           }`}
         style={{
-          width: option.width * scale,
-          height: option.height * scale,
+          width: option.width * size,
+          height: option.height * size,
         }}
       />
     );
@@ -164,96 +164,89 @@ export const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({
   const menuContent = (
     <div
       ref={menuRef}
-      className="fixed bg-stone-800 border border-stone-700 rounded-xl shadow-2xl p-3 min-w-[220px]"
+      className="fixed z-[9999] w-[320px] bg-[#1c1917] border border-stone-800 rounded-2xl shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-100"
       style={{
-        top: menuPosition.top,
-        left: menuPosition.left,
-        transform: 'translateY(-100%)',
-        zIndex: 9999,
+        top: `${menuPosition.top}px`,
+        left: `${menuPosition.left}px`,
+        transform: 'translateY(-100%)', // Always open upwards
       }}
     >
-      {/* Ratio Options */}
-      <div className={`flex items-center justify-between gap-2 mb-3 ${apiMode === 'official' ? 'flex-wrap justify-center' : ''}`}>
-        {ratioOptions.map((option) => {
-          const isSelected = selectedRatio === option.id;
-          return (
-            <button
-              key={option.id}
-              onClick={() => {
-                onRatioChange(option.id);
-              }}
-              className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all ${apiMode === 'official' ? 'w-[56px]' : 'flex-1'
-                } ${isSelected
-                  ? 'bg-stone-700 ring-1 ring-orange-400/50'
-                  : 'hover:bg-stone-700/50'
-                }`}
-            >
-              {/* Fixed-size container for uniform icon box */}
-              <div className="w-8 h-8 flex items-center justify-center">
-                <RatioIcon option={option} size={apiMode === 'official' ? 0.75 : 0.9} isSelected={isSelected} />
-              </div>
-              <div className="flex flex-col items-center">
-                <span className={`text-[10px] font-bold ${isSelected ? 'text-orange-400' : 'text-stone-400'}`}>
-                  {option.id}
-                </span>
-                <span className="text-[9px] text-stone-500">
-                  {getLabel(option)}
-                </span>
-              </div>
-            </button>
-          );
-        })}
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {ratioOptions.map((option) => (
+          <button
+            key={option.id}
+            onClick={() => {
+              onRatioChange(option.id);
+            }}
+            className="group w-full h-full flex flex-col items-center justify-center gap-1.5 p-2 rounded-lg hover:bg-stone-800 transition-colors"
+          >
+            <RatioIcon
+              option={option}
+              isSelected={selectedRatio === option.id}
+            />
+            <div className="flex flex-col items-center">
+              <span className={`text-[10px] font-bold ${selectedRatio === option.id ? 'text-stone-200' : 'text-stone-400 group-hover:text-stone-300'}`}>
+                {option.id}
+              </span>
+              <span className="text-[9px] text-stone-600 scale-90">
+                {language === 'EN' ? option.labelEn : option.label}
+              </span>
+            </div>
+          </button>
+        ))}
       </div>
 
-      {/* Divider */}
-      <div className="border-t border-stone-700 my-2" />
+      <div className="h-px bg-stone-800 my-3" />
 
-      {/* Quality Toggle */}
-      <button
-        onClick={() => on4KChange(!is4K)}
-        className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-stone-700/50 transition-all"
-      >
-        <div className="flex items-center gap-2">
-          <Icons.Sparkles size={14} className={is4K ? 'text-amber-400' : 'text-stone-500'} />
-          <span className={`text-xs font-medium ${is4K ? 'text-amber-400' : 'text-stone-400'}`}>
-            {apiMode === 'official' ? t.qualityOfficial : t.qualityCustom}
-          </span>
-        </div>
+      <div className="space-y-3">
+        {/* Quality Toggle */}
         <div
-          className={`w-8 h-4 rounded-full transition-all relative ${is4K ? 'bg-amber-500' : 'bg-stone-600'}`}
+          onClick={() => {
+            if (!disabled) on4KChange(!is4K);
+          }}
+          className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition-colors ${is4K ? 'bg-orange-950/20' : 'hover:bg-stone-800/50'
+            }`}
         >
-          <div
-            className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${is4K ? 'left-4' : 'left-0.5'}`}
-          />
+          <div className="flex items-center gap-3">
+            <div className={`p-1.5 rounded-lg ${is4K ? 'bg-orange-500 text-white' : 'bg-stone-800 text-stone-500'}`}>
+              <Icons.Sparkles size={14} />
+            </div>
+            <div>
+              <div className={`text-xs font-bold ${is4K ? 'text-orange-400' : 'text-stone-400'}`}>
+                {apiMode === 'official' ? t.qualityOfficial : t.qualityCustom}
+              </div>
+              <div className="text-[10px] text-stone-600 mt-0.5">
+                {apiMode === 'official'
+                  ? (is4K ? t.infoOfficial4K : t.infoOfficial1K)
+                  : (is4K ? t.infoCustom4K : t.infoCustom1K)
+                }
+              </div>
+            </div>
+          </div>
+
+          {/* Toggle Switch */}
+          <div className={`w-9 h-5 rounded-full relative transition-colors duration-200 ease-in-out ${is4K ? 'bg-orange-600' : 'bg-stone-700'}`}>
+            <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ease-in-out ${is4K ? 'translate-x-4' : 'translate-x-0'}`} />
+          </div>
         </div>
-      </button>
 
-      {/* Info Text */}
-      <p className="text-[9px] text-stone-500 mt-2 px-1">
-        {apiMode === 'official'
-          ? (is4K ? t.infoOfficial4K : t.infoOfficial1K)
-          : (is4K ? t.infoCustom4K : t.infoCustom1K)
-        }
-      </p>
-
-      {/* Mode indicator */}
-      <div className="mt-2 pt-2 border-t border-stone-700/50">
-        <span className={`text-[8px] font-medium px-1.5 py-0.5 rounded ${apiMode === 'official'
-          ? 'bg-blue-900/30 text-blue-400'
-          : (apiMode === 'volcengine' ? 'bg-orange-900/30 text-orange-400' : 'bg-violet-900/30 text-violet-400')
-          }`}>
-          {apiMode === 'official' ? 'OFFICIAL API' : (apiMode === 'volcengine' ? 'VOLCENGINE' : 'CUSTOM PROXY')}
-        </span>
+        {/* Volcengine Tag */}
+        {apiMode === 'volcengine' && (
+          <div className="px-2">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1d1b4b] text-[#818cf8] border border-[#312e81]">
+              VOLCENGINE
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
 
   return (
-    <div className="relative">
-      {/* Trigger Button */}
+    <>
       <button
         ref={triggerRef}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(!isOpen)}
         disabled={disabled}
         className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all ${disabled
           ? 'opacity-40 cursor-not-allowed'
@@ -269,20 +262,8 @@ export const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({
         <Icons.ChevronDown size={10} className={`text-stone-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Portal: Render menu to body to avoid clipping */}
-      {isOpen && ReactDOM.createPortal(
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0"
-            style={{ zIndex: 9998 }}
-            onClick={() => setIsOpen(false)}
-          />
-          {menuContent}
-        </>,
-        document.body
-      )}
-    </div>
+      {isOpen && ReactDOM.createPortal(menuContent, document.body)}
+    </>
   );
 };
 

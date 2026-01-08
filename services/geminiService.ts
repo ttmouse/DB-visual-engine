@@ -605,15 +605,17 @@ export async function generateImageFromPrompt(
     };
 
     const finalRatioStr = parseAspectRatioFromPrompt(promptContext);
-    // Volcengine size mappings: all maintain >3.6M pixels (2K resolution minimum)
-    if (finalRatioStr === '16:9') { width = 2560; height = 1440; }
-    else if (finalRatioStr === '9:16') { width = 1440; height = 2560; }
-    else if (finalRatioStr === '4:3') { width = 2304; height = 1728; }
-    else if (finalRatioStr === '3:4') { width = 1728; height = 2304; }
-    else if (finalRatioStr === '2:3') { width = 1536; height = 2304; }
-    else if (finalRatioStr === '3:2') { width = 2304; height = 1536; }
-    else if (finalRatioStr === '21:9') { width = 2688; height = 1152; }
-    // 1:1 uses default 2048x2048
+
+    // Volcengine size mappings: all must maintain >= 3,686,400 pixels (Request id: ... error)
+    if (finalRatioStr === '16:9') { width = 2560; height = 1440; } // 3.68M
+    else if (finalRatioStr === '9:16') { width = 1440; height = 2560; } // 3.68M
+    else if (finalRatioStr === '4:3') { width = 2304; height = 1728; } // 3.98M
+    else if (finalRatioStr === '3:4') { width = 1728; height = 2304; } // 3.98M
+    // Increased sizes for previously failing ratios:
+    else if (finalRatioStr === '2:3') { width = 1600; height = 2400; } // 3.84M (was 1536x2304=3.5M)
+    else if (finalRatioStr === '3:2') { width = 2400; height = 1600; } // 3.84M (was 2304x1536=3.5M)
+    else if (finalRatioStr === '21:9') { width = 3024; height = 1296; } // 3.91M (was 2688x1152=3.0M)
+    // 1:1 default 2048x2048 = 4.19M
 
     // Format reference image for Volcengine API
     const formatImageForVolcengine = (imageData: string, imgMimeType: string): string => {
@@ -676,6 +678,24 @@ export async function generateImageFromPrompt(
 
       if (!response.ok) {
         const errText = await response.text();
+        try {
+          // Try to parse the error JSON to give a better message
+          const errJson = JSON.parse(errText);
+          const errCode = errJson.error?.code;
+
+          if (errCode === 'InputTextSensitiveContentDetected') {
+            throw new Error("输入内容包含敏感信息，请修改提示词后重试。");
+          }
+          if (errCode === 'InvalidParameter' && errJson.error?.message?.includes('size')) {
+            throw new Error("图片尺寸不符合要求。");
+          }
+        } catch (parseErr: any) {
+          // If custom error was thrown above, rethrow it
+          if (parseErr.message && !parseErr.message.includes('JSON')) {
+            throw parseErr;
+          }
+          // Otherwise ignore JSON parse errors and throw original
+        }
         throw new Error(`Volcengine Error ${response.status}: ${errText}`);
       }
 
@@ -860,10 +880,17 @@ export async function executeReverseEngineering(
 
     // Clean JSON block
     const cleanContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(cleanContent) as ReverseEngineeringResult;
-  } catch (error) {
+    try {
+      return JSON.parse(cleanContent) as ReverseEngineeringResult;
+    } catch (parseError) {
+      console.error("JSON Parse Error. Raw content:", content);
+      throw new Error("Failed to parse AI response as JSON. Content: " + content.substring(0, 100) + "...");
+    }
+  } catch (error: any) {
     console.error("Reverse engineering failed:", error);
-    return null;
+    // Translate error (e.g. 429) so App.tsx can display friendly message
+    const userMsg = translateErrorMessage(error);
+    throw new Error(userMsg);
   }
 }
 

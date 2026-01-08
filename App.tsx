@@ -76,7 +76,8 @@ const INITIAL_STATE: AppState = {
   selectedHistoryIndex: 0,
   referenceImages: [],
   isComparing: false,
-  activeTab: 'STUDIO'
+  activeTab: 'STUDIO',
+  promptError: null
 };
 
 type TabType = AgentRole.AUDITOR | AgentRole.DESCRIPTOR | AgentRole.ARCHITECT | 'STUDIO';
@@ -111,6 +112,7 @@ const App: React.FC = () => {
   // ...
   const [apiMode, setApiMode] = useState<'official' | 'custom' | 'volcengine'>('custom');
   const [activeModelName, setActiveModelName] = useState('Gemini 3.0 Flash'); // Default display
+  const [isApiDropdownOpen, setIsApiDropdownOpen] = useState(false);
   const [isMentionMenuOpen, setIsMentionMenuOpen] = useState(false);
   const [hoveredHistoryIndex, setHoveredHistoryIndex] = useState<number | null>(null);
 
@@ -152,16 +154,18 @@ const App: React.FC = () => {
           loadCurrentTask()
         ]);
 
+        // Limit history to prevent OOM
+        const limitedHist = hist.slice(0, 50);
         let generatedImages: string[] = [];
-        let mergedState: Partial<AppState> = { history: hist };
+        let mergedState: Partial<AppState> = { history: limitedHist };
 
         if (cached) {
           // Rebuild generated images from history: prefer thumbnails for gallery
-          const imagesFromHistory = hist
+          const imagesFromHistory = limitedHist
             .filter(item => item.generatedImage)
             .map(item => item.generatedImageThumb || item.generatedImage as string);
 
-          generatedImages = imagesFromHistory.length > 0 ? imagesFromHistory : cached.generatedImages;
+          generatedImages = imagesFromHistory.length > 0 ? imagesFromHistory : (cached.generatedImages || []).slice(0, 50);
 
           mergedState = {
             ...mergedState,
@@ -171,7 +175,7 @@ const App: React.FC = () => {
             videoAnalysisDuration: cached.videoAnalysisDuration,
             results: cached.results,
             editablePrompt: cached.editablePrompt,
-            generatedImage: cached.generatedImage || (hist.length > 0 ? hist[0].generatedImage : null),
+            generatedImage: cached.generatedImage || (limitedHist.length > 0 ? limitedHist[0].generatedImage : null),
             generatedImages: generatedImages,
             layoutData: cached.layoutData,
             promptCache: cached.promptCache,
@@ -185,10 +189,10 @@ const App: React.FC = () => {
           }
         } else {
           // Fallback if no cache but history exists
-          if (hist.length > 0) {
-            mergedState.generatedImage = hist[0].generatedImage;
+          if (limitedHist.length > 0) {
+            mergedState.generatedImage = limitedHist[0].generatedImage;
             // generatedImages: prefer thumbnails for memory efficiency
-            const imagesFromHistory = hist
+            const imagesFromHistory = limitedHist
               .filter(item => item.generatedImage)
               .map(item => item.generatedImageThumb || item.generatedImage as string);
             mergedState.generatedImages = imagesFromHistory;
@@ -594,11 +598,9 @@ const App: React.FC = () => {
 
   const removeToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), []);
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    const id = Date.now().toString();
-    setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => removeToast(id), 3000);
-  }, [removeToast]);
+  const showToast = useCallback((message: string, type: ToastType = 'info', duration?: number) => {
+    setToasts(prev => [...prev, { id: crypto.randomUUID(), type, message, duration }]);
+  }, []);
 
   // Helper: Push a new prompt to history (max 20 entries)
   const pushPromptHistory = (newPrompt: string, source: string) => {
@@ -614,6 +616,76 @@ const App: React.FC = () => {
 
   const handleSelectKey = async () => {
     setIsKeyModalOpen(true);
+  };
+
+  const handleSwitchApiMode = () => {
+    const modes: ('official' | 'custom' | 'volcengine')[] = ['official', 'custom', 'volcengine'];
+    const nextMode = modes[(modes.indexOf(apiMode) + 1) % modes.length];
+
+    setApiMode(nextMode);
+    localStorage.setItem('berryxia_api_mode', nextMode);
+
+    // Update HasKey status
+    let storedKey = '';
+    if (nextMode === 'official') storedKey = localStorage.getItem('berryxia_api_key_official') || localStorage.getItem('berryxia_api_key') || '';
+    else if (nextMode === 'volcengine') storedKey = localStorage.getItem('berryxia_api_key_volcengine') || '';
+    else storedKey = localStorage.getItem('berryxia_api_key_custom') || localStorage.getItem('berryxia_api_key') || '';
+
+    setHasKey(!!storedKey && storedKey.length > 5);
+
+    // Update Active Model Display
+    if (nextMode === 'volcengine') {
+      const v = localStorage.getItem('berryxia_model_vision') || 'seed-1-6-250915';
+      setActiveModelName(v);
+    } else {
+      // Restore default/stored fast model for the mode
+      let f = localStorage.getItem('berryxia_model_fast');
+      if (!f) {
+        f = nextMode === 'official' ? 'gemini-3-flash-preview' : 'gemini-3-flash';
+      }
+      setActiveModelName(f);
+    }
+
+    const modeLabels: Record<string, string> = {
+      official: '官方 API',
+      custom: '自定义',
+      volcengine: '火山引擎'
+    };
+    showToast(`已切换到 ${modeLabels[nextMode] || nextMode} 模式`, 'success');
+  };
+
+  const handleSetApiMode = (targetMode: 'official' | 'custom' | 'volcengine') => {
+    setApiMode(targetMode);
+    localStorage.setItem('berryxia_api_mode', targetMode);
+
+    // Update HasKey status
+    let storedKey = '';
+    if (targetMode === 'official') storedKey = localStorage.getItem('berryxia_api_key_official') || localStorage.getItem('berryxia_api_key') || '';
+    else if (targetMode === 'volcengine') storedKey = localStorage.getItem('berryxia_api_key_volcengine') || '';
+    else storedKey = localStorage.getItem('berryxia_api_key_custom') || localStorage.getItem('berryxia_api_key') || '';
+
+    setHasKey(!!storedKey && storedKey.length > 5);
+
+    // Update Active Model Display
+    if (targetMode === 'volcengine') {
+      const v = localStorage.getItem('berryxia_model_vision') || 'seed-1-6-250915';
+      setActiveModelName(v);
+    } else {
+      // Restore default/stored fast model for the mode
+      let f = localStorage.getItem('berryxia_model_fast');
+      if (!f) {
+        f = targetMode === 'official' ? 'gemini-3-flash-preview' : 'gemini-3-flash';
+      }
+      setActiveModelName(f);
+    }
+
+    const modeLabels: Record<string, string> = {
+      official: '官方 API',
+      custom: '自定义',
+      volcengine: '火山引擎'
+    };
+    showToast(`已切换到 ${modeLabels[targetMode] || targetMode} 模式`, 'success');
+    setIsApiDropdownOpen(false);
   };
 
   const handleFileSelected = (base64Data: string, aspectRatio: string, mimeType: string, duration?: number, extractedPrompt?: string) => {
@@ -1090,14 +1162,49 @@ const App: React.FC = () => {
             setState(prev => ({
               ...prev,
               generatedImage: img, // Full image for current editing
-              generatedImages: [imageForGallery, ...prev.generatedImages], // Thumbs for gallery
-              history: [newItem, ...prev.history],
+              generatedImages: [imageForGallery, ...prev.generatedImages].slice(0, 50), // Thumbs for gallery
+              history: [newItem, ...prev.history].slice(0, 50),
               selectedHistoryIndex: 0
             }));
           }
         } catch (err: any) {
           console.error(`Failed to generate image ${i + 1}:`, err);
-          lastError = err?.message || "生成失败";
+          const errorMsg = err?.message || "生成失败";
+          lastError = errorMsg;
+
+          // Check for sensitive content error
+          if (errorMsg.includes("敏感信息") || errorMsg.includes("Sensitive Content")) {
+            setState(prev => ({
+              ...prev,
+              isGeneratingImage: false,
+              promptError: "提示词包含敏感信息，请修改后重试"
+            }));
+            showToast(t('toast.generateFailed'), "error", 6000);
+            return; // Stop generation immediately
+          }
+
+          // Check for Quota/429 errors
+          if (errorMsg.includes("429") || errorMsg.includes("exhausted") || errorMsg.includes("quota") || errorMsg.includes("额度")) {
+            setState(prev => ({
+              ...prev,
+              isGeneratingImage: false,
+              // promptError: "今日额度已达上限" // Optional prompt error
+            }));
+            showToast("API 额度已耗尽 (Daily Quota Exceeded)", "error", 6000);
+            return;
+          }
+
+          // Check for sensitive content error
+          if (errorMsg.includes("敏感信息") || errorMsg.includes("Sensitive Content")) {
+            setState(prev => ({
+              ...prev,
+              isGeneratingImage: false,
+              promptError: "提示词包含敏感信息，请修改后重试"
+            }));
+            // Show a longer toast for sensitive content
+            showToast(t('toast.generateFailed'), "error", 6000); // 6 seconds
+            return; // Stop generation immediately
+          }
 
           // Stop the loop for quota/rate limit errors - no point retrying
           if (lastError.includes("429") || lastError.includes("额度") || lastError.includes("配额")) {
@@ -1552,9 +1659,21 @@ const App: React.FC = () => {
               )}
             </div>
 
+            {/* Prompt Error Tooltip/Overlay */}
+            {state.promptError && (
+              <div className="absolute bottom-full left-0 mb-2 px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium rounded-lg backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 z-20 flex items-center gap-2">
+                <Icons.AlertTriangle size={12} className="shrink-0" />
+                <span>{state.promptError}</span>
+              </div>
+            )}
+
             <textarea
               value={state.editablePrompt}
-              onChange={(e) => setState(prev => ({ ...prev, editablePrompt: e.target.value }))}
+              onChange={(e) => setState(prev => ({
+                ...prev,
+                editablePrompt: e.target.value,
+                promptError: null // Clear error on edit
+              }))}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1836,7 +1955,7 @@ const App: React.FC = () => {
             </div>
 
             {/* AI Input Area - Two Row Layout */}
-            <div className="bg-stone-800 rounded-xl border border-stone-700 overflow-hidden">
+            <div className="bg-stone-800 rounded-xl border border-stone-700">
               {/* Top Row: Text Input */}
               <div className="px-3 pt-2.5 pb-0">
                 <textarea
@@ -1912,11 +2031,19 @@ const App: React.FC = () => {
                       reader.readAsDataURL(file);
                     });
                   }}
-                  placeholder={isAnalyzing ? "正在分析差异..." : "输入 AI 指令..."}
-                  className={`w-full bg-transparent border-none text-sm outline-none text-stone-200 placeholder:text-stone-500 resize-none min-h-[20px] max-h-[100px] leading-snug ${isAnalyzing ? 'placeholder:animate-pulse' : ''}`}
+                  // Style updates for error state
+                  className={`w-full flex-1 bg-transparent border-none outline-none resize-none 
+                ${state.promptError ? 'text-red-300 placeholder-red-300/30' : 'text-stone-300 placeholder-stone-600'} 
+                text-sm leading-relaxed scrollbar-thin scrollbar-thumb-stone-800 scrollbar-track-transparent p-1 transition-colors`}
+                  placeholder={t('studio.placeholder')}
+                  spellCheck={false}
                   disabled={isChatProcessing || isAnalyzing}
                   rows={1}
                 />
+
+                {state.promptError && (
+                  <div className="absolute inset-x-0 bottom-0 top-auto h-[1px] bg-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.4)] pointer-events-none" />
+                )}
               </div>
 
               {/* Bottom Row: Buttons & Model Info */}
@@ -1976,7 +2103,75 @@ const App: React.FC = () => {
                   </label>
 
                   {/* Model Info */}
-                  <span className="text-[10px] text-stone-500 font-medium">{activeModelName}</span>
+                  {/* Model Switcher Dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsApiDropdownOpen(!isApiDropdownOpen)}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-stone-800 transition-colors group"
+                      title="切换 API 模式"
+                    >
+                      <span className={`text-[10px] font-medium transition-colors ${apiMode === 'official' ? 'text-orange-500' :
+                        apiMode === 'volcengine' ? 'text-blue-500' : 'text-stone-500'
+                        }`}>
+                        {activeModelName}
+                      </span>
+                      <Icons.ChevronUp size={10} className={`text-stone-600 group-hover:text-stone-400 transition-transform duration-200 ${isApiDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {isApiDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setIsApiDropdownOpen(false)} />
+                        <div className="absolute bottom-full left-0 mb-2 w-56 bg-stone-900 border border-stone-800 rounded-xl shadow-2xl z-20 overflow-hidden flex flex-col p-1 animate-in fade-in zoom-in-95 slide-in-from-bottom-2">
+                          <div className="px-3 py-2 border-b border-stone-800/50 mb-1">
+                            <div className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Select Provider</div>
+                          </div>
+
+                          <button
+                            onClick={() => handleSetApiMode('official')}
+                            className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors ${apiMode === 'official' ? 'bg-orange-900/20' : 'hover:bg-stone-800'}`}
+                          >
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <Icons.Globe size={12} className={apiMode === 'official' ? 'text-orange-500' : 'text-stone-500'} />
+                                <span className={`text-xs font-bold ${apiMode === 'official' ? 'text-orange-400' : 'text-stone-300'}`}>Official API</span>
+                              </div>
+                              <span className="text-[9px] text-stone-500 pl-4.5">Google Gemini Direct</span>
+                            </div>
+                            {apiMode === 'official' && <Icons.Check size={14} className="text-orange-500" />}
+                          </button>
+
+                          <button
+                            onClick={() => handleSetApiMode('custom')}
+                            className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors ${apiMode === 'custom' ? 'bg-orange-900/20' : 'hover:bg-stone-800'}`}
+                          >
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <Icons.Server size={12} className={apiMode === 'custom' ? 'text-orange-500' : 'text-stone-500'} />
+                                <span className={`text-xs font-bold ${apiMode === 'custom' ? 'text-orange-400' : 'text-stone-300'}`}>Custom Proxy</span>
+                              </div>
+                              <span className="text-[9px] text-stone-500 pl-4.5">Self-hosted / Forwarder</span>
+                            </div>
+                            {apiMode === 'custom' && <Icons.Check size={14} className="text-orange-500" />}
+                          </button>
+
+                          <button
+                            onClick={() => handleSetApiMode('volcengine')}
+                            className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors ${apiMode === 'volcengine' ? 'bg-blue-900/20' : 'hover:bg-stone-800'}`}
+                          >
+                            <div className="flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <Icons.Zap size={12} className={apiMode === 'volcengine' ? 'text-blue-500' : 'text-stone-500'} />
+                                <span className={`text-xs font-bold ${apiMode === 'volcengine' ? 'text-blue-400' : 'text-stone-300'}`}>Volcengine</span>
+                              </div>
+                              <span className="text-[9px] text-stone-500 pl-4.5">Doubao Vision</span>
+                            </div>
+                            {apiMode === 'volcengine' && <Icons.Check size={14} className="text-blue-500" />}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
 
                   {/* Aspect Ratio Selector */}
                   <AspectRatioSelector
@@ -2277,9 +2472,18 @@ const App: React.FC = () => {
           </button>
           <div className="w-px h-6 bg-stone-800 mx-1" />
           <div className="flex items-center gap-2 mr-2">
-            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${apiMode === 'official' ? 'border-orange-500/30 text-orange-500' : 'border-blue-500/30 text-blue-500'}`}>
-              {apiMode === 'official' ? t('api.official') : t('api.custom')}
-            </span>
+            <button
+              onClick={handleSwitchApiMode}
+              title="点击切换 API 模式 (Click to Switch)"
+              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border cursor-pointer hover:bg-stone-800 active:scale-95 transition-all ${apiMode === 'official'
+                ? 'border-orange-500/30 text-orange-500'
+                : apiMode === 'volcengine'
+                  ? 'border-blue-600/30 text-blue-500'
+                  : 'border-blue-500/30 text-blue-500'
+                }`}
+            >
+              {apiMode === 'official' ? t('api.official') : (apiMode === 'volcengine' ? '火山引擎' : t('api.custom'))}
+            </button>
           </div>
           <button onClick={handleSelectKey} className={`p-2.5 rounded-full hover:bg-stone-800 ${hasKey ? 'text-emerald-500' : 'text-stone-500'}`} title={t('api.keyStatus')}><Icons.Key size={20} /></button>
         </div>

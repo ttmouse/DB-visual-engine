@@ -95,6 +95,9 @@ export interface AppState {
   // Chat/Suggestions
   suggestions: string[];
   selectedSuggestionIndices: number[];
+
+  // Error handling
+  promptError: string | null;
 }
 
 export type AgentPromptGenerator = (previousContext: string) => string;

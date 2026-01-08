@@ -69,7 +69,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
       if (storedMode === 'official') {
         defaultReasoning = 'gemini-3-flash-preview';
         defaultFast = 'gemini-3-flash-preview';
-        defaultImage = 'imagen-3.0-generate-001';
+        defaultImage = 'gemini-3-pro-image-preview';
       } else if (storedMode === 'volcengine') {
         // Volcengine specific defaults
         defaultReasoning = 'gemini-3-pro-high'; // Fallback to reasoning? Or user didn't specify. Keep Gemini for text.
@@ -79,7 +79,13 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
 
       const r = localStorage.getItem('berryxia_model_reasoning') || defaultReasoning;
       const f = localStorage.getItem('berryxia_model_fast') || defaultFast;
-      const i = localStorage.getItem('berryxia_model_image') || defaultImage;
+      let i = localStorage.getItem('berryxia_model_image') || defaultImage;
+
+      // Fix broken imagen model in official mode
+      if (storedMode === 'official' && i === 'imagen-3.0-generate-001') {
+        i = 'gemini-3-pro-image-preview';
+      }
+
       const v = localStorage.getItem('berryxia_model_vision') || 'seed-1-6-250915';
       setReasoningModel(r);
       setFastModel(f);
@@ -177,7 +183,29 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
     } catch (e: any) {
       console.error(e);
       setStatus('error');
-      setStatusMsg(`连接失败: ${e.message || '未知错误'}`);
+      const errStr = e.message || String(e);
+
+      if (errStr.includes("Failed to fetch") || errStr.includes("NetworkError")) {
+        const isHttps = window.location.protocol === 'https:';
+        // Check if using Custom mode
+        if (apiMode === 'custom') {
+          const isLocalTarget = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1');
+          const isHttpTarget = baseUrl.startsWith('http:');
+
+          if (isHttps && isHttpTarget) {
+            setStatusMsg("安全策略拦截：无法在 HTTPS 页面访问 HTTP 接口 (Mixed Content)。请配置 HTTPS。");
+          } else if (isLocalTarget && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            setStatusMsg("路由错误：无法从远程设备访问 Localhost 接口。请使用局域网 IP (如 192.168.x.x)。");
+          } else {
+            setStatusMsg("网络错误：连接被拒绝。请检查 CORS 设置、接口地址或网络连通性。");
+          }
+        } else {
+          // Official / Volcengine
+          setStatusMsg("网络错误：无法连接到服务器。请检查网络或代理设置。");
+        }
+      } else {
+        setStatusMsg(`连接失败: ${errStr}`);
+      }
     } finally {
       setIsTestLoading(false);
     }
@@ -279,7 +307,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                       setApiMode('official');
                       setReasoningModel('gemini-3-flash-preview');
                       setFastModel('gemini-3-flash-preview');
-                      setImageModel('imagen-3.0-generate-001');
+                      setImageModel('gemini-3-pro-image-preview');
                     }}
                     className={`flex-1 py-2.5 px-2 rounded-xl text-xs font-bold transition-all ${apiMode === 'official'
                       ? 'bg-orange-600 text-white'

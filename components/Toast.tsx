@@ -3,10 +3,12 @@ import { Icons } from './Icons';
 
 export type ToastType = 'success' | 'error' | 'info';
 
+// Add duration to interface
 export interface ToastMessage {
   id: string;
   type: ToastType;
   message: string;
+  duration?: number;
 }
 
 interface ToastContainerProps {
@@ -27,7 +29,8 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, removeTo
 const ToastItem: React.FC<{ toast: ToastMessage; onRemove: () => void }> = ({ toast, onRemove }) => {
   useEffect(() => {
     // Error messages stay longer (4s), info/success clear faster (1.5s)
-    const duration = toast.type === 'error' ? 2000 : 800;
+    // Use custom duration if provided, otherwise defaults
+    const duration = toast.duration || (toast.type === 'error' ? 2000 : 800);
     const timer = setTimeout(() => {
       onRemove();
     }, duration);

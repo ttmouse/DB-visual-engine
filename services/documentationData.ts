@@ -588,5 +588,54 @@ Available on main interface (outside input fields):
 `
             }
         ]
+    },
+    {
+        titleCN: "故障排除",
+        titleEN: "Troubleshooting",
+        articles: [
+            {
+                id: "connection-issue",
+                titleCN: "连接问题排查",
+                titleEN: "Connection Troubleshooting",
+                icon: "AlertCircle",
+                contentCN: `
+## 为什么会连接失败？
+
+"Failed to fetch" 通常是由于浏览器安全策略或网络路由引起的。
+
+### 情况 1：HTTPS 页面访问 HTTP 接口 (Mixed Content)
+如果通过 Vercel 等平台部署了 HTTPS 页面，但 API 接口是 HTTP (如本地 IP)，浏览器会阻止请求。
+**解决方法**：
+- **方案 A (推荐)**：使用 **ngrok** 或 **Cloudflare Tunnel** 将 API 映射为 HTTPS 地址。
+- **方案 B (临时)**：点击浏览器地址栏左侧的"锁"图标 -> 网站设置 -> 不安全内容 ->允许。
+
+### 情况 2：从其他设备访问 Localhost
+如果在 A 电脑运行接口，B 电脑通过网页访问，并在设置填入了 \`http://127.0.0.1:xxx\`，这是错误的。B 电脑会尝试连接自己。
+**解决方法**：
+- 请填写 A 电脑的**局域网 IP** (例如 \`http://192.168.1.5:xxx\`)。
+- 确保 A 电脑防火墙已允许该端口。
+
+### 情况 3：跨域 (CORS)
+如果 API 服务未正确配置 CORS 头，浏览器会拒绝连接。请检查服务器配置。
+`,
+                contentEN: `
+## Why Connection Fails?
+
+"Failed to fetch" usually indicates browser security blocks or routing issues.
+
+### Case 1: Mixed Content (HTTPS -> HTTP)
+If using HTTPS web (e.g., Vercel) to access HTTP API, modern browsers block it.
+**Fix**:
+- **A (Recommended)**: Use **ngrok** or **Cloudflare Tunnel** for HTTPS.
+- **B (Test Only)**: Browser Settings -> Insecure Content -> Allow.
+
+### Case 2: Remote Accessing Localhost
+If accessing via Network, do NOT use \`localhost\` or \`127.0.0.1\` in settings.
+**Fix**:
+- Use the **LAN IP** of the host machine (e.g., \`192.168.1.5\`).
+- Check Firewall rules.
+`
+            }
+        ]
     }
 ];
