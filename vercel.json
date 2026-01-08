@@ -1,1 +1,12 @@
-{"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+{
+    "rewrites": [
+        {
+            "source": "/api/volcengine/:path*",
+            "destination": "/api/volcengine"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
+}

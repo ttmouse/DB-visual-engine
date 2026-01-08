@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
         '/api/volcengine': {
           target: 'https://ark.ap-southeast.bytepluses.com',
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/volcengine/, '')
+          rewrite: (path) => path.replace(/^\/api\/volcengine/, '/api/v3/images/generations')
         }
       }
     },

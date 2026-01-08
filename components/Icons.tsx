@@ -61,7 +61,8 @@ import {
     GitCompare,
     Search,
     LucideProps,
-    Zap
+    Zap,
+    Slash
 } from 'lucide-react';
 
 const createIcon = (Icon: React.ComponentType<LucideProps>) => {
@@ -125,5 +126,6 @@ export const Icons = {
     Columns: createIcon(Columns),
     GitCompare: createIcon(GitCompare),
     Search: createIcon(Search),
-    Zap: createIcon(Zap)
+    Zap: createIcon(Zap),
+    Slash: createIcon(Slash)
 };

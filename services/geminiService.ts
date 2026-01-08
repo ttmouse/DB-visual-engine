@@ -406,10 +406,8 @@ export async function generateImageFromPrompt(
   // VOLCENGINE LOGIC
   if (currentConfig.mode === 'volcengine') {
     const modelId = modelConfig.image || 'seedream-4-5-251128'; // Default fallback
-    // Use proxy in dev environment to bypass CORS
-    const endpoint = import.meta.env.DEV
-      ? "/api/volcengine/api/v3/images/generations"
-      : "https://ark.ap-southeast.bytepluses.com/api/v3/images/generations";
+    // Use proxy endpoint for both dev and production to bypass CORS
+    const endpoint = "/api/volcengine";
 
     console.log(`[Volcengine] Generating with Model: ${modelId}`);
 
