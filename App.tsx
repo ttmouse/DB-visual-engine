@@ -43,6 +43,7 @@ import { extractPromptFromPng, embedPromptInPng } from './utils/pngMetadata';
 import { generateThumbnail } from './utils/thumbnailUtils';
 import { PromptDiffView } from './components/PromptDiffView';
 import { hasSignificantDiff } from './utils/promptDiff';
+import { ImageDetailViewer } from './components/ImageDetailViewer';
 
 const INITIAL_RESULTS = {
   [AgentRole.AUDITOR]: { role: AgentRole.AUDITOR, content: '', isStreaming: false, isComplete: false },
@@ -2162,48 +2163,22 @@ const App: React.FC = () => {
 
       {/* Global Drag Overlay Removed */}
 
-      {/* Fullscreen Overlay */}
-      {fullscreenImg && (
-        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-md animate-in fade-in duration-300" onClick={() => { setFullscreenImg(null); setIsFullscreenComparison(false); }}>
-          <button
-            onClick={(e) => { e.stopPropagation(); setFullscreenImg(null); setIsFullscreenComparison(false); }}
-            className="absolute top-10 right-10 text-white/50 hover:text-white transition-colors z-[210] p-4"
-          >
-            <Icons.X size={32} />
-          </button>
-          {isFullscreenComparison ? (
-            <div className="w-full h-full flex items-center justify-center gap-8 p-20">
-              <div className="flex-1 h-full flex flex-col items-center justify-center">
-                <div className="text-white/50 text-sm mb-4 font-medium">ORIGINAL</div>
-                <img
-                  src={displayImage}
-                  alt="Original"
-                  className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg cursor-default"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-              <div className="flex-1 h-full flex flex-col items-center justify-center">
-                <div className="text-white/50 text-sm mb-4 font-medium">GENERATED</div>
-                <img
-                  src={getOriginalFromHistory(state.history, state.selectedHistoryIndex)}
-                  alt="Generated"
-                  className="max-w-full max-h-[85vh] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg cursor-default"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center p-10">
-              <img
-                src={fullscreenImg}
-                alt="Fullscreen View"
-                className="max-w-[95%] max-h-[95%] object-contain shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-lg cursor-default"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      {/* Fullscreen Detail Viewer */}
+      <ImageDetailViewer
+        isOpen={!!fullscreenImg}
+        onClose={() => { setFullscreenImg(null); setIsFullscreenComparison(false); }}
+        mode={isFullscreenComparison ? 'comparison' : 'single'}
+        currentImage={isFullscreenComparison
+          ? getOriginalFromHistory(state.history, state.selectedHistoryIndex)
+          : (fullscreenImg || '')}
+        comparisonImage={displayImage || undefined}
+        images={state.generatedImages.map((_, i) => getOriginalFromHistory(state.history, i))}
+        currentIndex={state.selectedHistoryIndex}
+        onNavigate={(index) => {
+          loadHistoryItem(index);
+          setFullscreenImg(getOriginalFromHistory(state.history, index));
+        }}
+      />
 
       <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/90 backdrop-blur-md border-b border-stone-800 h-16 flex items-center justify-between px-10">
         <div className="flex items-center gap-3">
