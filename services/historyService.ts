@@ -48,6 +48,45 @@ export const getHistory = async (): Promise<HistoryItem[]> => {
   }
 };
 
+// Get history items with pagination for progressive loading
+export const getHistoryPaginated = async (
+  limit: number,
+  offset: number = 0
+): Promise<{ items: HistoryItem[]; hasMore: boolean; total: number }> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+
+      // First get count
+      const countRequest = store.count();
+
+      countRequest.onsuccess = () => {
+        const total = countRequest.result;
+        const getAllRequest = store.getAll();
+
+        getAllRequest.onsuccess = () => {
+          const allItems = (getAllRequest.result as HistoryItem[])
+            .sort((a, b) => b.timestamp - a.timestamp);
+
+          const items = allItems.slice(offset, offset + limit);
+          const hasMore = offset + limit < total;
+
+          resolve({ items, hasMore, total });
+        };
+
+        getAllRequest.onerror = () => reject(getAllRequest.error);
+      };
+
+      countRequest.onerror = () => reject(countRequest.error);
+    });
+  } catch (e) {
+    console.error("IDB Paginated Read Error:", e);
+    return { items: [], hasMore: false, total: 0 };
+  }
+};
+
 // Save or Update a history item
 export const saveHistoryItem = async (item: HistoryItem): Promise<void> => {
   try {

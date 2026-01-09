@@ -23,6 +23,7 @@ import { saveHistoryItem, getHistory, deleteHistoryItemById } from './services/h
 import { detectSkillIntent, createUserMessage, createAssistantMessage, createSkillResultMessage, executeQualityCheck, executeRefineSkill, executeReverseSkill } from './services/chatService';
 import { promptManager, PromptVersion } from './services/promptManager';
 import { saveCurrentTask, loadCurrentTask, clearCurrentTask } from './services/cacheService';
+import { saveViewState } from './services/recentCacheService';
 import { runLazyMigration } from './services/migrationService';
 import { usePromptHistory } from './hooks/usePromptHistory';
 import { useSoundEffects } from './hooks/useSoundEffects';
@@ -42,10 +43,12 @@ import { ChatPanel } from './components/ChatPanel';
 import { ChatDrawer } from './components/ChatDrawer';
 import { PanelHeader } from './components/PanelHeader';
 import { LandingPage } from './components/LandingPage';
-import { DocumentationModal } from './components/DocumentationModal';
-import { ApiKeyModal } from './components/ApiKeyModal';
-import { PromptLabModal } from './components/PromptLabModal';
-import { GalleryModal } from './components/GalleryModal';
+
+// Lazy load heavy modal components for better initial load performance
+const DocumentationModal = React.lazy(() => import('./components/DocumentationModal').then(m => ({ default: m.DocumentationModal })));
+const ApiKeyModal = React.lazy(() => import('./components/ApiKeyModal').then(m => ({ default: m.ApiKeyModal })));
+const PromptLabModal = React.lazy(() => import('./components/PromptLabModal').then(m => ({ default: m.PromptLabModal })));
+const GalleryModal = React.lazy(() => import('./components/GalleryModal').then(m => ({ default: m.GalleryModal })));
 import { AspectRatioSelector } from './components/AspectRatioSelector';
 import ReactMarkdown from 'react-markdown';
 import { extractPromptFromPng, embedPromptInPng } from './utils/pngMetadata';
@@ -297,6 +300,7 @@ const App: React.FC = () => {
   }, [displayImage, state.generatedImage]);
 
   // Auto-save current task to cache with debounce (避免频繁保存)
+  // NOTE: Only save essential state, NOT large arrays like generatedImages (they're in IndexedDB)
   useEffect(() => {
     if (!state.image) return;
 
@@ -305,17 +309,17 @@ const App: React.FC = () => {
         saveCurrentTask({
           image: state.image,
           mimeType: state.mimeType,
-          displayImage: displayImage,
+          displayImage: null, // Skip saving displayImage - it's reconstructed from history
           detectedAspectRatio: state.detectedAspectRatio,
           videoAnalysisDuration: state.videoAnalysisDuration,
           results: state.results,
           editablePrompt: state.editablePrompt,
           generatedImage: state.generatedImage,
-          generatedImages: state.generatedImages,
+          generatedImages: [], // Skip saving array - images are in IndexedDB history
           layoutData: state.layoutData,
           promptCache: state.promptCache,
           selectedHistoryIndex: state.selectedHistoryIndex,
-          referenceImages: state.referenceImages
+          referenceImages: state.referenceImages?.slice(0, 3) || [] // Limit reference images
         });
       } catch (e: any) {
         if (e.name === 'QuotaExceededError') {
@@ -327,8 +331,8 @@ const App: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [
     state.image, state.mimeType, state.detectedAspectRatio,
-    state.editablePrompt, state.generatedImage, state.generatedImages.length,
-    state.selectedHistoryIndex, displayImage
+    state.editablePrompt, state.generatedImage,
+    state.selectedHistoryIndex
   ]);
 
   // Helper to load history item
@@ -343,6 +347,13 @@ const App: React.FC = () => {
     // 2. Set selected index & Display Image (High Priority UI Update)
     // 优先更新 UI，让用户感觉到操作立即响应
     setSelectedHistoryIndex(index);
+    // Save to localStorage: position + current item thumbnail for "recently viewed" cache
+    saveViewState(index, {
+      id: historyItem.id,
+      thumbnail: historyItem.generatedImageThumb,
+      prompt: historyItem.prompt,
+      aspectRatio: historyItem.detectedAspectRatio
+    });
     // 在对比模式下，不更新 displayImage（左侧图），实现“锁定左侧，右侧切换”的扫描体验
     // 用户反馈：左键点击应总是还原该记录的“原图 vs 生成图”对比
     // Remove "Lock Left" logic to restore standard behavior
@@ -352,19 +363,16 @@ const App: React.FC = () => {
       setDisplayImage(null);
     }
 
-    // 3. Restore state (Deferred Update using startTransition)
-    // 使用 startTransition 标记为低优先级更新，确保 UI 响应流畅
-    startTransition(() => {
-      setState(prev => ({
-        ...prev,
-        editablePrompt: historyItem.prompt,
-        promptCache: { ...prev.promptCache, CN: historyItem.prompt },
-        image: historyItem.originalImage,
-        mimeType: historyItem.mimeType || 'image/png',
-        detectedAspectRatio: historyItem.detectedAspectRatio || '1:1',
-        generatedImage: historyItem.generatedImage
-      }));
-    });
+    // 3. Restore state (direct update - avoiding startTransition to prevent concurrent mode conflicts)
+    setState(prev => ({
+      ...prev,
+      editablePrompt: historyItem.prompt,
+      promptCache: { ...prev.promptCache, CN: historyItem.prompt },
+      image: historyItem.originalImage,
+      mimeType: historyItem.mimeType || 'image/png',
+      detectedAspectRatio: historyItem.detectedAspectRatio || '1:1',
+      generatedImage: historyItem.generatedImage
+    }));
   }, [isComparisonMode]); // 依赖 isComparisonMode，其他依赖使用 ref 或 setter 消除
 
   // Keyboard Shortcuts for History and Fullscreen
@@ -581,16 +589,14 @@ const App: React.FC = () => {
   const handleDeleteHistoryItem = useCallback(async (index: number) => {
     const historyItem = historyRef.current[index];
 
-    // Delete from IndexedDB if it exists
+    // Delete from IndexedDB if it exists (non-blocking)
     if (historyItem?.id) {
-      try {
-        await deleteHistoryItemById(historyItem.id);
-      } catch (e) {
-        console.error('Failed to delete from DB:', e);
-      }
+      deleteHistoryItemById(historyItem.id).catch(e =>
+        console.error('Failed to delete from DB:', e)
+      );
     }
 
-    // Remove from local state
+    // Update state immediately (not using startTransition to avoid concurrent mode conflicts)
     setState(prev => {
       const newGeneratedImages = [...prev.generatedImages];
       const newHistory = [...prev.history];
@@ -876,9 +882,12 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-stone-200 font-sans selection:bg-stone-700 overflow-hidden">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <DocumentationModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
-      <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
-      <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
+      {/* Lazy-loaded modals with Suspense fallback */}
+      <React.Suspense fallback={null}>
+        <DocumentationModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+        <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
+        <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
+      </React.Suspense>
 
       {/* Hidden file input for A shortcut (add reference image) */}
       <input
@@ -920,24 +929,23 @@ const App: React.FC = () => {
         }}
       />
 
-      <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
-      <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
-      <GalleryModal
-        isOpen={isGalleryOpen}
-        onClose={() => setIsGalleryOpen(false)}
-        images={state.generatedImages}
-        history={state.history}
-        prompts={state.history.map(h => h.prompt)}
-        onDownload={handleDownloadHD}
-        onEdit={handleGalleryEdit}
-        onDelete={handleDeleteHistoryItem}
-        onAddToComparison={(index) => {
-          const imgUrl = getOriginalFromHistory(state.history, index);
-          setDisplayImage(imgUrl);
-          setIsComparisonMode(true);
-          // showToast(t('gallery.addedToComparisonLeft'), 'success'); // 不需要提示，避免遮挡
-        }}
-      />
+      <React.Suspense fallback={null}>
+        <GalleryModal
+          isOpen={isGalleryOpen}
+          onClose={() => setIsGalleryOpen(false)}
+          images={state.generatedImages}
+          history={state.history}
+          prompts={state.history.map(h => h.prompt)}
+          onDownload={handleDownloadHD}
+          onEdit={handleGalleryEdit}
+          onDelete={handleDeleteHistoryItem}
+          onAddToComparison={(index) => {
+            const imgUrl = getOriginalFromHistory(state.history, index);
+            setDisplayImage(imgUrl);
+            setIsComparisonMode(true);
+          }}
+        />
+      </React.Suspense>
 
       {/* Global Drag Overlay Removed */}
 
