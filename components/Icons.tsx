@@ -64,7 +64,10 @@ import {
     LucideProps,
     Zap,
     Slash,
-    AlertTriangle
+    AlertTriangle,
+    Loader2,
+    LayoutDashboard,
+    Scan
 } from 'lucide-react';
 
 const createIcon = (Icon: React.ComponentType<LucideProps>) => {
@@ -131,5 +134,8 @@ export const Icons = {
     Search: createIcon(Search),
     Zap: createIcon(Zap),
     Slash: createIcon(Slash),
-    AlertTriangle: createIcon(AlertTriangle)
+    AlertTriangle: createIcon(AlertTriangle),
+    Loader2: createIcon(Loader2),
+    LayoutDashboard: createIcon(LayoutDashboard),
+    Scan: createIcon(Scan)
 };

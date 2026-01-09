@@ -6,7 +6,7 @@ import { visualizer } from 'rollup-plugin-visualizer';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const isProduction = mode === 'production';
-  
+
   return {
     server: {
       port: 3005,
@@ -57,10 +57,6 @@ export default defineConfig(({ mode }) => {
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],
             'ui-vendor': ['lucide-react', 'react-markdown'],
             'utils-vendor': ['idb-keyval'],
-            // 按功能模块拆分
-            'studio': ['./src/features/studio'],
-            'chat': ['./src/features/chat'],
-            'history': ['./src/features/history'],
           }
         }
       },

@@ -58,7 +58,7 @@ export const usePipelineProgress = () => {
         streamingContent: content,
         progress: Math.min(95, (content.length / 500) * 100) // 估算进度
       };
-      
+
       // 计算总体进度
       const totalProgress = newSteps.reduce((sum, step, idx) => {
         if (idx < stepIndex) return sum + 25; // 已完成的步骤
@@ -90,12 +90,12 @@ export const usePipelineProgress = () => {
       // 计算预计剩余时间
       const completedSteps = newSteps.filter(s => s.status === PipelineStepStatus.COMPLETED);
       let estimatedTimeRemaining = null;
-      
+
       if (completedSteps.length > 0) {
         const avgTime = completedSteps.reduce((sum, s) => {
           return sum + ((s.endTime! - s.startTime!) / 1000);
         }, 0) / completedSteps.length;
-        
+
         const remainingSteps = newSteps.length - completedSteps.length;
         estimatedTimeRemaining = Math.round(avgTime * remainingSteps);
       }
