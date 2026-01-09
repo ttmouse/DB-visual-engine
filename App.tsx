@@ -14,7 +14,8 @@ import { ImageViewer } from './components/ImageViewer';
 import { ImageComparisonSlider } from './components/ImageComparisonSlider';
 import { HistoryThumbnail } from './components/HistoryThumbnail';
 import { ReferenceImageList } from './components/ReferenceImageList';
-import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
+import { ToastContainer } from './components/Toast';
+import { useToast } from './hooks/useToast';
 import { StorageIndicator } from './components/StorageIndicator';
 import { Icons } from './components/Icons';
 import { streamAgentAnalysis, generateImageFromPrompt, streamConsistencyCheck, refinePromptWithFeedback, detectLayout, translatePrompt, executeSmartAnalysis, configureClient, configureModels, getModeDefaultModels } from './services/geminiService';
@@ -23,12 +24,20 @@ import { detectSkillIntent, createUserMessage, createAssistantMessage, createSki
 import { promptManager, PromptVersion } from './services/promptManager';
 import { saveCurrentTask, loadCurrentTask, clearCurrentTask } from './services/cacheService';
 import { runLazyMigration } from './services/migrationService';
-import { soundService } from './services/soundService';
+import { usePromptHistory } from './hooks/usePromptHistory';
+import { useSoundEffects } from './hooks/useSoundEffects';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useHistoryNavigation } from './hooks/useHistoryNavigation';
 import { usePipelineProgress } from './hooks/usePipelineProgress';
+import { useApiConfig } from './hooks/useApiConfig';
+import { useAppInitialization } from './hooks/useAppInitialization';
+import { useImagePipeline } from './hooks/useImagePipeline';
+import { useImageGeneration } from './hooks/useImageGeneration';
 import { I18nProvider, useI18n } from './hooks/useI18n';
+import { useResizablePanel } from './hooks/useResizablePanel';
 import { PipelineProgressView } from './components/PipelineProgressView';
 import { AGENTS, PIPELINE_ORDER } from './constants';
-import { AgentRole, AppState, HistoryItem, ChatMessage, PipelineStepStatus, ReferenceImage } from './types';
+import { AgentRole, AppState, HistoryItem, ChatMessage, PipelineStepStatus, ReferenceImage, TabType, RefineModeConfig, ReverseModeConfig } from './types';
 import { ChatPanel } from './components/ChatPanel';
 import { ChatDrawer } from './components/ChatDrawer';
 import { PanelHeader } from './components/PanelHeader';
@@ -44,176 +53,59 @@ import { generateThumbnail } from './utils/thumbnailUtils';
 import { PromptDiffView } from './components/PromptDiffView';
 import { hasSignificantDiff } from './utils/promptDiff';
 import { ImageDetailViewer } from './components/ImageDetailViewer';
-
-const INITIAL_RESULTS = {
-  [AgentRole.AUDITOR]: { role: AgentRole.AUDITOR, content: '', isStreaming: false, isComplete: false },
-  [AgentRole.DESCRIPTOR]: { role: AgentRole.DESCRIPTOR, content: '', isStreaming: false, isComplete: false },
-  [AgentRole.ARCHITECT]: { role: AgentRole.ARCHITECT, content: '', isStreaming: false, isComplete: false },
-  [AgentRole.SYNTHESIZER]: { role: AgentRole.SYNTHESIZER, content: '', isStreaming: false, isComplete: false },
-  [AgentRole.CRITIC]: { role: AgentRole.CRITIC, content: '', isStreaming: false, isComplete: false },
-  [AgentRole.SORA_VIDEOGRAPHER]: { role: AgentRole.SORA_VIDEOGRAPHER, content: '', isStreaming: false, isComplete: false },
-};
-
-
-
+import { INITIAL_STATE, INITIAL_RESULTS } from './constants/appState';
+import { getImageSrc, getOriginalFromHistory } from './utils/imageHelpers';
+import { parseSuggestions } from './utils/parseSuggestions';
 import { ImageZoomState } from './utils/zoom';
-// ... other imports
 
-const INITIAL_STATE: AppState = {
-  image: null, mimeType: '', isProcessing: false, activeRole: null, results: INITIAL_RESULTS,
-  currentGroupId: crypto.randomUUID(), // Start new group session
-  generatedImage: null, generatedImages: [], isGeneratingImage: false,
-  editablePrompt: '', promptHistory: [], currentPromptIndex: 0, isRefiningPrompt: false,
-  useReferenceImage: false, isTemplatizing: false, detectedAspectRatio: "1:1",
-  videoAnalysisDuration: null, isRefining: false, history: [],
-  isVersionDropdownOpen: false,
-  layoutData: null, isAnalyzingLayout: false,
-  suggestions: [], selectedSuggestionIndices: [],
-  promptCache: { CN: '', EN: '' },
 
-  // Global History
 
-  selectedHistoryIndex: 0,
-  referenceImages: [],
-  isComparing: false,
-  activeTab: 'STUDIO',
-  promptError: null
-};
-
-type TabType = AgentRole.AUDITOR | AgentRole.DESCRIPTOR | AgentRole.ARCHITECT | 'STUDIO';
-
-// Helper to determine image source (Base64 or URL)
-const getImageSrc = (data: string | null | undefined, mimeType: string = 'image/png') => {
-  if (!data) return '';
-  if (data.startsWith('http')) return data;
-  if (data.startsWith('data:')) return data;
-  return `data:${mimeType};base64,${data}`;
-};
-
-// Helper to get original (full res) image from history by index
-const getOriginalFromHistory = (history: HistoryItem[], index: number): string => {
-  const item = history[index];
-  if (!item?.generatedImage) return '';
-  return getImageSrc(item.generatedImage, item.mimeType || 'image/png');
-};
 
 const App: React.FC = () => {
   const { language, t, setLanguage } = useI18n();
   const [isPending, startTransition] = useTransition(); // 用于非阻塞状态更新
   const [showLanding, setShowLanding] = useState(false);
-  const [hasKey, setHasKey] = useState(false);
+
   const [state, setState] = useState<AppState>(INITIAL_STATE);
   const [displayImage, setDisplayImage] = useState<string | null>(null);
   const [uploaderKey, setUploaderKey] = useState(0); // Key to force ImageUploader remount
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const { toasts, showToast, removeToast } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>('STUDIO');
 
   /* Existing state declarations */
   // ...
-  const [apiMode, setApiMode] = useState<'official' | 'custom' | 'volcengine'>('custom');
-  const [activeModelName, setActiveModelName] = useState('Gemini 3.0 Flash'); // Default display
+  const { apiMode, setApiMode, activeModelName, setActiveModelName, hasKey, setHasKey, switchApiMode } = useApiConfig();
+
+  // App Initialization (History, Cache)
+  useAppInitialization(setState, setDisplayImage, setShowLanding);
+
   const [isApiDropdownOpen, setIsApiDropdownOpen] = useState(false);
   const [isMentionMenuOpen, setIsMentionMenuOpen] = useState(false);
   const [hoveredHistoryIndex, setHoveredHistoryIndex] = useState<number | null>(null);
 
-  // Consolidate initialization logic
-  useEffect(() => {
-    const init = async () => {
-      // Load API Mode
-      const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine';
-      setApiMode(storedMode);
-
-      // Load specific model name for display based on mode
-      if (storedMode === 'volcengine') {
-        // For Volcengine, show the vision model (used for reverse engineering)
-        const storedVisionModel = localStorage.getItem('unimage_model_vision') || 'seed-1-6-250915';
-        setActiveModelName(storedVisionModel);
-      } else {
-        // For Google modes, show the fast model (used for chat)
-        const storedFastModel = localStorage.getItem('unimage_model_fast');
-        if (storedFastModel) setActiveModelName(storedFastModel);
-      }
-
-      // Check for environment variable injection
-      const envKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-      if (envKey && envKey.length > 10) {
-        setHasKey(true);
-      }
-
-      // Check localStorage for key presence to update indicator color
-      let storedKey = '';
-      if (storedMode === 'official') storedKey = localStorage.getItem('unimage_api_key_official') || localStorage.getItem('unimage_api_key') || '';
-      else if (storedMode === 'volcengine') storedKey = localStorage.getItem('unimage_api_key_volcengine') || '';
-      else storedKey = localStorage.getItem('unimage_api_key_custom') || localStorage.getItem('unimage_api_key') || '';
-
-      if (storedKey) setHasKey(true);
-
-      try {
-        const [hist, cached] = await Promise.all([
-          getHistory(),
-          loadCurrentTask()
-        ]);
-
-        // Limit history to prevent OOM
-        const limitedHist = hist.slice(0, 50);
-        let generatedImages: string[] = [];
-        let mergedState: Partial<AppState> = { history: limitedHist };
-
-        if (cached) {
-          // Rebuild generated images from history: prefer thumbnails for gallery
-          const imagesFromHistory = limitedHist
-            .filter(item => item.generatedImage)
-            .map(item => item.generatedImageThumb || item.generatedImage as string);
-
-          generatedImages = imagesFromHistory.length > 0 ? imagesFromHistory : (cached.generatedImages || []).slice(0, 50);
-
-          mergedState = {
-            ...mergedState,
-            image: cached.image,
-            mimeType: cached.mimeType,
-            detectedAspectRatio: cached.detectedAspectRatio,
-            videoAnalysisDuration: cached.videoAnalysisDuration,
-            results: cached.results,
-            editablePrompt: cached.editablePrompt,
-            generatedImage: cached.generatedImage || (limitedHist.length > 0 ? limitedHist[0].generatedImage : null),
-            generatedImages: generatedImages,
-            layoutData: cached.layoutData,
-            promptCache: cached.promptCache,
-            selectedHistoryIndex: cached.selectedHistoryIndex || 0,
-            referenceImages: cached.referenceImages || []
-          };
-
-          // Restore display image
-          if (cached.displayImage) {
-            setDisplayImage(cached.displayImage);
-          }
-        } else {
-          // Fallback if no cache but history exists
-          if (limitedHist.length > 0) {
-            mergedState.generatedImage = limitedHist[0].generatedImage;
-            // generatedImages: prefer thumbnails for memory efficiency
-            const imagesFromHistory = limitedHist
-              .filter(item => item.generatedImage)
-              .map(item => item.generatedImageThumb || item.generatedImage as string);
-            mergedState.generatedImages = imagesFromHistory;
-          }
-        }
-
-        if (cached || hist.length > 0) {
-          setShowLanding(false);
-        }
-
-        setState(prev => ({ ...prev, ...mergedState }));
-
-        // Run lazy thumbnail migration for old history items (non-blocking)
-        runLazyMigration().catch(e => console.warn('[Migration] Failed:', e));
-
-      } catch (e) {
-        console.error("Initialization failed", e);
-      }
+  const handleSetApiMode = (targetMode: 'official' | 'custom' | 'volcengine') => {
+    setApiMode(targetMode);
+    const modeLabels: Record<string, string> = {
+      official: '官方 API',
+      custom: '自定义',
+      volcengine: '火山引擎'
     };
-    init();
-  }, []);
+    showToast(`已切换到 ${modeLabels[targetMode] || targetMode} 模式`, 'success');
+    setIsApiDropdownOpen(false);
+  };
+
+  const handleSwitchApiMode = () => {
+    const nextMode = switchApiMode();
+    const modeLabels: Record<string, string> = {
+      official: '官方 API',
+      custom: '自定义',
+      volcengine: '火山引擎'
+    };
+    showToast(`已切换到 ${modeLabels[nextMode] || nextMode} 模式`, 'success');
+    setIsApiDropdownOpen(false);
+  };
+
+
 
   const [refinementInput, setRefinementInput] = useState('');
   const [fullscreenImg, setFullscreenImg] = useState<string | null>(null);
@@ -240,7 +132,6 @@ const App: React.FC = () => {
   const [isReverseMenuOpen, setIsReverseMenuOpen] = useState(false);
 
   // Refine Mode State (Moved up for scope access)
-  type RefineModeConfig = 'optimize-auto' | 'optimize-prompt';
   const [selectedRefineMode, setSelectedRefineMode] = useState<RefineModeConfig>('optimize-auto');
   const [isRefineMenuOpen, setIsRefineMenuOpen] = useState(false);
 
@@ -259,7 +150,6 @@ const App: React.FC = () => {
   }, [isRefineMenuOpen]);
 
   // State for Reverse Mode selection (4 options)
-  type ReverseModeConfig = 'quick-auto' | 'quick-prompt' | 'full-auto' | 'full-prompt';
   const [selectedReverseMode, setSelectedReverseMode] = useState<ReverseModeConfig>('quick-auto');
 
   // Ref to track auto-generation for Full Pipeline
@@ -277,19 +167,37 @@ const App: React.FC = () => {
     }
   }, [state.results, state.isProcessing]);
 
-  // Resizable panel state (percentage, stored in localStorage)
-  const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
-    const saved = localStorage.getItem('unimage_left_panel_width');
-    return saved ? parseFloat(saved) : 50;
-  });
-  const [isDraggingDivider, setIsDraggingDivider] = useState(false);
+  const [is4K, setIs4K] = useState(false); // 是否启用 4K 画质
+  const mainRef = useRef<HTMLElement>(null);
+  const historyRef = useRef(state.history); // 用于 useEffect 回调中访问最新 history
 
-  // Right panel (Chat/History) resizable state
-  const [rightPanelWidth, setRightPanelWidth] = useState(() => {
-    const saved = localStorage.getItem('unimage_right_panel_width');
-    return saved ? parseInt(saved) : 320;
+  // Resizable left panel
+  const {
+    width: leftPanelWidth,
+    isDragging: isDraggingDivider,
+    setIsDragging: setIsDraggingDivider
+  } = useResizablePanel(mainRef, {
+    storageKey: 'unimage_left_panel_width',
+    defaultValue: 50,
+    min: 25,
+    max: 75,
+    isPercentage: true,
+    direction: 'left'
   });
-  const [isDraggingRightDivider, setIsDraggingRightDivider] = useState(false);
+
+  // Resizable right panel
+  const {
+    width: rightPanelWidth,
+    isDragging: isDraggingRightDivider,
+    setIsDragging: setIsDraggingRightDivider
+  } = useResizablePanel(mainRef, {
+    storageKey: 'unimage_right_panel_width',
+    defaultValue: 320,
+    min: 200,
+    max: 500,
+    isPercentage: false,
+    direction: 'right'
+  });
   // Removed isGlobalDragging state as we use localized drop zones now
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const analyzeAbortRef = useRef<AbortController | null>(null);
@@ -304,7 +212,7 @@ const App: React.FC = () => {
   // New Image Drag State for left panel
   const [isDraggingNewImage, setIsDraggingNewImage] = useState(false);
 
-  const isPipelineRunning = useRef(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleStopGeneration = () => {
@@ -339,75 +247,49 @@ const App: React.FC = () => {
   } = usePipelineProgress();
 
   const [showProgressView, setShowProgressView] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(soundService.isEnabled());
+  const { soundEnabled, toggleSound, soundService } = useSoundEffects();
+  const { promptHistory, pushPromptHistory, clearPromptHistory } = usePromptHistory();
   const [reverseMode, setReverseMode] = useState<'full' | 'quick'>('quick'); // 'full' = 完整4步骤, 'quick' = 单步快速逆向
   const [generateCount, setGenerateCount] = useState(1); // 生成图片数量
   const [isGenerateMenuOpen, setIsGenerateMenuOpen] = useState(false); // 生成菜单开关
   const [selectedAspectRatio, setSelectedAspectRatio] = useState('1:1'); // 选择的比例
-  const [is4K, setIs4K] = useState(false); // 是否启用 4K 画质
-  const mainRef = useRef<HTMLElement>(null);
-  const historyRef = useRef(state.history); // 用于 useEffect 回调中访问最新 history
+
+  const { handleGenerateImage } = useImageGeneration({
+    state,
+    setState,
+    selectedAspectRatio,
+    is4K,
+    t,
+    showToast
+  });
+
+  const { handleQuickReverse, isPipelineRunning } = useImagePipeline({
+    state,
+    setState,
+    pipelineProgress,
+    initPipeline,
+    startStep,
+    updateStep: updateStepContent,
+    completeStep,
+    errorStep,
+    setProgressDirect,
+    soundService,
+    pushPromptHistory,
+    setActiveTab,
+    setShowProgressView,
+    t,
+    completePipeline,
+    showToast,
+    onGenerateImage: (prompt) => handleGenerateImage(prompt)
+  });
+
 
   // 保持 historyRef 同步
   useEffect(() => {
     historyRef.current = state.history;
   }, [state.history]);
 
-  // Save panel width to localStorage
-  useEffect(() => {
-    localStorage.setItem('unimage_left_panel_width', leftPanelWidth.toString());
-  }, [leftPanelWidth]);
 
-  // Handle divider drag
-  useEffect(() => {
-    if (!isDraggingDivider) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!mainRef.current) return;
-      const rect = mainRef.current.getBoundingClientRect();
-      const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
-      // Clamp between 25% and 75%
-      setLeftPanelWidth(Math.min(75, Math.max(25, newWidth)));
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingDivider(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDraggingDivider]);
-
-  // Handle right panel divider drag (for Chat/History column)
-  useEffect(() => {
-    if (!isDraggingRightDivider) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!mainRef.current) return;
-      const rect = mainRef.current.getBoundingClientRect();
-      const newWidth = rect.right - e.clientX;
-      // Clamp between 200px and 500px
-      const clampedWidth = Math.min(500, Math.max(200, newWidth));
-      setRightPanelWidth(clampedWidth);
-      // Save immediately during drag for persistence
-      localStorage.setItem('unimage_right_panel_width', clampedWidth.toString());
-    };
-
-    const handleMouseUp = () => {
-      setIsDraggingRightDivider(false);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDraggingRightDivider]);
 
   // Handle image zoom update
   const handleZoomChange = (newZoom: ImageZoomState) => {
@@ -491,101 +373,31 @@ const App: React.FC = () => {
   }, [isComparisonMode]); // 依赖 isComparisonMode，其他依赖使用 ref 或 setter 消除
 
   // Keyboard Shortcuts for History and Fullscreen
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // ESC to close fullscreen
-      if (e.key === 'Escape' && fullscreenImg) {
-        setFullscreenImg(null);
-        setIsFullscreenComparison(false);
-        return;
-      }
-
-      if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-
-      if (state.generatedImages.length === 0) return;
-
-      if (e.key === 'ArrowLeft') {
-        const newIndex = Math.max(0, state.selectedHistoryIndex - 1);
-        if (newIndex !== state.selectedHistoryIndex) {
-          loadHistoryItem(newIndex);
-          // Update fullscreen image if in fullscreen mode
-          if (fullscreenImg && historyRef.current[newIndex]) {
-            if (isFullscreenComparison) {
-              // For comparison mode, keep the current mode but update the index
-              // The image will be updated via selectedHistoryIndex
-            } else {
-              setFullscreenImg(getOriginalFromHistory(historyRef.current, newIndex));
-            }
-          }
-        }
-      } else if (e.key === 'ArrowRight') {
-        const newIndex = Math.min(state.generatedImages.length - 1, state.selectedHistoryIndex + 1);
-        if (newIndex !== state.selectedHistoryIndex) {
-          loadHistoryItem(newIndex);
-          // Update fullscreen image if in fullscreen mode
-          if (fullscreenImg && historyRef.current[newIndex]) {
-            if (isFullscreenComparison) {
-              // For comparison mode, keep the current mode but update the index
-              // The image will be updated via selectedHistoryIndex
-            } else {
-              setFullscreenImg(getOriginalFromHistory(historyRef.current, newIndex));
-            }
-          }
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.generatedImages.length, state.selectedHistoryIndex, fullscreenImg, isFullscreenComparison]);
+  // Keyboard Shortcuts for History and Fullscreen
+  useHistoryNavigation({
+    generatedImagesLength: state.generatedImages.length,
+    selectedHistoryIndex: state.selectedHistoryIndex,
+    history: state.history,
+    loadHistoryItem,
+    fullscreenImg,
+    setFullscreenImg,
+    isFullscreenComparison,
+    setIsFullscreenComparison
+  });
 
 
   // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (showProgressView && e.key === 'Escape') {
-        setShowProgressView(false); // ESC 隐藏进度视图
-      }
-    };
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [showProgressView]);
-
-  // Global Keyboard Shortcuts (G, H, N, C, A, P)
-  useEffect(() => {
-    const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      // Skip if in input/textarea
-      if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-      // Skip if any modal is open
-      if (isGalleryOpen || isHelpOpen || isKeyModalOpen || fullscreenImg) return;
-
-      const key = e.key.toLowerCase();
-
-      if (key === 'g') {
-        e.preventDefault();
-        setIsGalleryOpen(true);
-      } else if (key === 'h') {
-        e.preventDefault();
-        setIsHelpOpen(true);
-      } else if (key === 'n') {
-        e.preventDefault();
-        handleReset();
-      } else if (key === 'c') {
-        e.preventDefault();
-        setIsComparisonMode(prev => !prev);
-      } else if (key === 'a') {
-        e.preventDefault();
-        // Focus the file input for reference image
-        const fileInput = document.getElementById('reference-image-input') as HTMLInputElement;
-        fileInput?.click();
-      } else if (key === 'p') {
-        e.preventDefault();
-        setIsPromptLabOpen(prev => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalShortcuts);
-    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
-  }, [isGalleryOpen, isHelpOpen, isKeyModalOpen, fullscreenImg]);
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    setIsGalleryOpen,
+    setIsHelpOpen,
+    handleReset,
+    setIsComparisonMode,
+    setIsPromptLabOpen,
+    showProgressView,
+    setShowProgressView,
+    areModalsOpen: isGalleryOpen || isHelpOpen || isKeyModalOpen || !!fullscreenImg
+  });
 
   // Sync displayImage when exiting comparison mode (恢复显示当前选中的图片的原始图)
   useEffect(() => {
@@ -596,21 +408,7 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isComparisonMode]); // 仅在模式切换时执行，避免普通切换时的冗余更新
 
-  const removeToast = useCallback((id: string) => setToasts(prev => prev.filter(t => t.id !== id)), []);
 
-  const showToast = useCallback((message: string, type: ToastType = 'info', duration?: number) => {
-    setToasts(prev => [...prev, { id: crypto.randomUUID(), type, message, duration }]);
-  }, []);
-
-  // Helper: Push a new prompt to history (max 20 entries)
-  const pushPromptHistory = (newPrompt: string, source: string) => {
-    if (!newPrompt.trim()) return;
-    const entry = `[${source}] ${new Date().toLocaleTimeString('zh-CN')}\n${newPrompt}`;
-    setState(prev => {
-      const history = [entry, ...prev.promptHistory.filter(h => h !== entry)].slice(0, 20);
-      return { ...prev, promptHistory: history, currentPromptIndex: 0 };
-    });
-  };
 
 
 
@@ -618,95 +416,7 @@ const App: React.FC = () => {
     setIsKeyModalOpen(true);
   };
 
-  const handleSwitchApiMode = () => {
-    const modes: ('official' | 'custom' | 'volcengine')[] = ['official', 'custom', 'volcengine'];
-    const nextMode = modes[(modes.indexOf(apiMode) + 1) % modes.length];
 
-    setApiMode(nextMode);
-    localStorage.setItem('unimage_api_mode', nextMode);
-
-    // Update HasKey status
-    let storedKey = '';
-    if (nextMode === 'official') storedKey = localStorage.getItem('unimage_api_key_official') || localStorage.getItem('unimage_api_key') || '';
-    else if (nextMode === 'volcengine') storedKey = localStorage.getItem('unimage_api_key_volcengine') || '';
-    else storedKey = localStorage.getItem('unimage_api_key_custom') || localStorage.getItem('unimage_api_key') || '';
-
-    setHasKey(!!storedKey && storedKey.length > 5);
-
-    // 🆕 Reconfigure the Gemini service with appropriate key and mode
-    const baseUrl = localStorage.getItem('unimage_base_url') || '';
-    if (storedKey) {
-      configureClient(storedKey, baseUrl, nextMode);
-    }
-
-    // 🆕 Reconfigure models with mode-appropriate defaults
-    const modeDefaults = getModeDefaultModels(nextMode);
-    configureModels(modeDefaults);
-
-    // Update Active Model Display
-    if (nextMode === 'volcengine') {
-      const v = localStorage.getItem('unimage_model_vision') || modeDefaults.fast;
-      setActiveModelName(v);
-    } else {
-      // Restore default/stored fast model for the mode
-      let f = localStorage.getItem('unimage_model_fast');
-      if (!f || f.includes('seed')) {
-        f = modeDefaults.fast;
-      }
-      setActiveModelName(f);
-    }
-
-    const modeLabels: Record<string, string> = {
-      official: '官方 API',
-      custom: '自定义',
-      volcengine: '火山引擎'
-    };
-    showToast(`已切换到 ${modeLabels[nextMode] || nextMode} 模式`, 'success');
-  };
-
-  const handleSetApiMode = (targetMode: 'official' | 'custom' | 'volcengine') => {
-    setApiMode(targetMode);
-    localStorage.setItem('unimage_api_mode', targetMode);
-
-    // Update HasKey status
-    let storedKey = '';
-    if (targetMode === 'official') storedKey = localStorage.getItem('unimage_api_key_official') || localStorage.getItem('unimage_api_key') || '';
-    else if (targetMode === 'volcengine') storedKey = localStorage.getItem('unimage_api_key_volcengine') || '';
-    else storedKey = localStorage.getItem('unimage_api_key_custom') || localStorage.getItem('unimage_api_key') || '';
-
-    setHasKey(!!storedKey && storedKey.length > 5);
-
-    // 🆕 Reconfigure the Gemini service with appropriate key and mode
-    const baseUrl = localStorage.getItem('unimage_base_url') || '';
-    if (storedKey) {
-      configureClient(storedKey, baseUrl, targetMode);
-    }
-
-    // 🆕 Reconfigure models with mode-appropriate defaults
-    const modeDefaults = getModeDefaultModels(targetMode);
-    configureModels(modeDefaults);
-
-    // Update Active Model Display
-    if (targetMode === 'volcengine') {
-      const v = localStorage.getItem('unimage_model_vision') || modeDefaults.fast;
-      setActiveModelName(v);
-    } else {
-      // Restore default/stored fast model for the mode
-      let f = localStorage.getItem('unimage_model_fast');
-      if (!f || f.includes('seed')) {
-        f = modeDefaults.fast;
-      }
-      setActiveModelName(f);
-    }
-
-    const modeLabels: Record<string, string> = {
-      official: '官方 API',
-      custom: '自定义',
-      volcengine: '火山引擎'
-    };
-    showToast(`已切换到 ${modeLabels[targetMode] || targetMode} 模式`, 'success');
-    setIsApiDropdownOpen(false);
-  };
 
   const handleFileSelected = (base64Data: string, aspectRatio: string, mimeType: string, duration?: number, extractedPrompt?: string) => {
     setDisplayImage(`data:${mimeType};base64,${base64Data}`);
@@ -737,7 +447,7 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, isProcessing: true }));
   };
 
-  const handleReset = () => {
+  function handleReset() {
     setDisplayImage(null);
     setUploaderKey(prev => prev + 1); // Force ImageUploader to remount
     // 新建任务：只清空提示词和分析结果，保留历史记录和生成的图片
@@ -784,259 +494,7 @@ const App: React.FC = () => {
     } catch (e) { showToast(t('toast.translateFailed'), "error"); }
   };
 
-  const parseSuggestions = (content: string) => {
-    // Find the optimization section using multiple possible markers
-    const markers = ["调优建议", "调优指令", "Optimization Suggestions", "Optimization"];
-    let sectionText = "";
 
-    for (const marker of markers) {
-      const idx = content.lastIndexOf(marker);
-      if (idx !== -1) {
-        sectionText = content.slice(idx);
-        break;
-      }
-    }
-
-    if (!sectionText) return [];
-
-    // Extract lines that start with numbers like "1." "2." "3."
-    const suggestions: string[] = [];
-    const lines = sectionText.split('\n');
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      // Match lines starting with 1. 2. 3. etc., possibly with markers like * -
-      const match = trimmed.match(/^[\*\-]?\s*([1-3])[.\)、]\s*(.+)/);
-      if (match && match[2]) {
-        // Clean up the suggestion text: remove leading ** and trailing **
-        let suggestion = match[2]
-          .replace(/^\*\*/, '')
-          .replace(/\*\*$/, '')
-          .replace(/^\*\*(.+?)\*\*:?\s*/, '$1: ')
-          .trim();
-        if (suggestion.length > 5) {
-          suggestions.push(suggestion);
-        }
-      }
-    }
-
-    return suggestions.slice(0, 3);
-  };
-
-  const processImagePipeline = async () => {
-    if (!state.image || isPipelineRunning.current) return;
-    isPipelineRunning.current = true;
-
-    // 初始化进度
-    initPipeline();
-    setShowProgressView(true);
-    setActiveTab('STUDIO');
-
-    // 播放开始音效
-    soundService.playStart();
-
-    let accumulatedContext = `[Ratio: ${state.detectedAspectRatio}]`;
-
-    try {
-      for (let i = 0; i < PIPELINE_ORDER.length; i++) {
-        const role = PIPELINE_ORDER[i];
-
-        // 开始步骤
-        startStep(i);
-        if (role !== AgentRole.SYNTHESIZER) setActiveTab(role as TabType);
-
-        setState(prev => ({
-          ...prev, activeRole: role,
-          results: { ...prev.results, [role]: { ...prev.results[role], content: '', isStreaming: true, isComplete: false } }
-        }));
-
-        let agentContent = "";
-        const stream = streamAgentAnalysis(role, state.image!, accumulatedContext, state.mimeType);
-
-        // 流式更新
-        for await (const chunk of stream) {
-          agentContent += chunk;
-          updateStepContent(i, agentContent); // 更新进度视图
-          setState(prev => ({ ...prev, results: { ...prev.results, [role]: { ...prev.results[role], content: agentContent } } }));
-        }
-
-        accumulatedContext += `\n\n--- ${role} ---\n${agentContent}\n`;
-
-        // 完成步骤
-        completeStep(i, agentContent);
-        soundService.playStepComplete();
-
-        setState(prev => ({ ...prev, results: { ...prev.results, [role]: { ...prev.results[role], isStreaming: false, isComplete: true } } }));
-
-        if (role === AgentRole.SYNTHESIZER) {
-          setState(prev => ({
-            ...prev,
-            editablePrompt: agentContent,
-            promptCache: { ...prev.promptCache, CN: agentContent }
-          }));
-          pushPromptHistory(agentContent, '初始生成');
-        }
-
-        // Halt pipeline if error occurred
-        if (agentContent.includes("[错误]") || agentContent.includes("[⚠️ 配额限制]")) {
-          errorStep(i, "API 错误或配额限制");
-          soundService.playError();
-          break;
-        }
-      }
-
-      // 完成流水线
-      completePipeline();
-      soundService.playComplete();
-
-      // 延迟隐藏进度视图，显示打字机效果
-      setTimeout(() => {
-        setShowProgressView(false);
-        setActiveTab('STUDIO');
-        showToast(t('toast.promptHistoryAdded'), "success");
-      }, 2000);
-
-    } catch (error) {
-      soundService.playError();
-      errorStep(pipelineProgress?.currentStepIndex || 0, String(error));
-    } finally {
-      setState(prev => ({ ...prev, isProcessing: false }));
-      isPipelineRunning.current = false;
-    }
-  };
-
-  useEffect(() => {
-    if (state.isProcessing && !isPipelineRunning.current) processImagePipeline();
-  }, [state.isProcessing]);
-
-  // 单步快速逆向
-  const handleQuickReverse = async (autoGenerate: boolean = false) => {
-    if (!state.image || isPipelineRunning.current) return;
-    isPipelineRunning.current = true;
-    setState(prev => ({ ...prev, isProcessing: true }));
-
-    // 初始化单步骤进度
-    setShowProgressView(true);
-    setActiveTab('STUDIO');
-    soundService.playStart();
-
-    // 创建单步骤进度
-    setProgressDirect({
-      isRunning: true,
-      currentStepIndex: 0,
-      steps: [{
-        role: AgentRole.SYNTHESIZER,
-        name: AGENTS[AgentRole.SYNTHESIZER].name,
-        description: t('reverse.quick.title'),
-        status: PipelineStepStatus.RUNNING,
-        progress: 0,
-        streamingContent: '',
-        finalContent: '',
-        startTime: Date.now(),
-        endTime: null,
-        error: null
-      }],
-      totalProgress: 0,
-      estimatedTimeRemaining: null,
-      startTime: Date.now()
-    });
-
-    try {
-      const { content, suggestions } = await executeReverseSkill(state.image, state.mimeType);
-
-      // 模拟流式更新
-      let displayedContent = '';
-      const chunks = content.match(/.{1,20}/g) || []; // 每20字符一个chunk
-
-      for (let i = 0; i < chunks.length; i++) {
-        displayedContent += chunks[i];
-        const progress = Math.round(((i + 1) / chunks.length) * 100);
-
-        const currentProgress = pipelineProgress;
-        if (currentProgress) {
-          const newSteps = [...currentProgress.steps];
-          newSteps[0] = {
-            ...newSteps[0],
-            streamingContent: displayedContent,
-            progress,
-            finalContent: displayedContent
-          };
-          setProgressDirect({
-            ...currentProgress,
-            steps: newSteps,
-            totalProgress: progress
-          });
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 30)); // 模拟流式效果
-      }
-
-      // 完成
-      const currentProgress = pipelineProgress;
-      if (currentProgress) {
-        const newSteps = [...currentProgress.steps];
-        newSteps[0] = {
-          ...newSteps[0],
-          status: PipelineStepStatus.COMPLETED,
-          progress: 100,
-          streamingContent: content,
-          finalContent: content,
-          endTime: Date.now()
-        };
-        setProgressDirect({
-          ...currentProgress,
-          isRunning: false,
-          steps: newSteps,
-          totalProgress: 100
-        });
-      }
-
-      // 使用建议作为提示词
-      const selectedSuggestion = suggestions && suggestions.length > 0 ? suggestions[0] : content;
-
-      setState(prev => ({
-        ...prev,
-        editablePrompt: selectedSuggestion,
-        promptCache: { ...prev.promptCache, CN: selectedSuggestion }
-      }));
-
-      pushPromptHistory(selectedSuggestion, t('history.reverse'));
-
-      soundService.playComplete();
-
-      // 延迟隐藏进度视图
-      setTimeout(() => {
-        setShowProgressView(false);
-        setActiveTab('STUDIO');
-        showToast(t('toast.reverseComplete'), "success");
-
-        // Auto Generate if requested
-        if (autoGenerate) {
-          handleGenerateImage(selectedSuggestion);
-        }
-      }, 1500);
-
-    } catch (e: any) {
-      // Quiet fail for quota limits
-      if (e.message?.includes('额度') || e.message?.includes('Exhausted')) {
-        console.warn("Client Notification:", e.message);
-      } else {
-        console.error(e);
-      }
-      showToast(e.message || t('toast.analysisFailed'), 'error');
-
-      const currentProgress = pipelineProgress;
-      if (currentProgress) {
-        const newSteps = [...currentProgress.steps];
-        newSteps[0].status = PipelineStepStatus.ERROR;
-        newSteps[0].error = e.message;
-        setProgressDirect({ ...currentProgress, steps: newSteps, isRunning: false });
-      }
-    } finally {
-      isPipelineRunning.current = false;
-      setState(prev => ({ ...prev, isProcessing: false }));
-    }
-  };
 
   // Helper to execute the currently selected Reverse Mode
   const executeReverseAction = () => {
@@ -1118,141 +576,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGenerateImage = async (customPrompt?: string, count: number = 1) => {
-    const p = customPrompt || state.editablePrompt;
-    if (state.isGeneratingImage || !p) return;
-    setState(prev => ({ ...prev, isGeneratingImage: true }));
 
-    const totalCount = count;
-    let successCount = 0;
-
-    try {
-      // Submit to Gemini for generation
-      let refImage: string | null = null;
-      let targetMimeType = state.mimeType || 'image/jpeg';
-      // Use user-selected aspect ratio if set, otherwise fallback to detected
-      let detectedRatio = selectedAspectRatio || state.detectedAspectRatio;
-
-      // Logic: Prioritize dragged reference images (User explicit intent)
-      if (state.referenceImages && state.referenceImages.length > 0) {
-        refImage = state.referenceImages[0].url;
-        targetMimeType = state.referenceImages[0].mimeType;
-        // Logic: Use reference image's aspect ratio only if user hasn't manually selected
-        if (!selectedAspectRatio && state.referenceImages[0].aspectRatio) {
-          detectedRatio = state.referenceImages[0].aspectRatio;
-        }
-        showToast(t('toast.referenceEnabled'), "info");
-      } else if (state.useReferenceImage && state.image) {
-        // Fallback to Main Image if toggle is ON
-        refImage = state.image;
-        targetMimeType = state.mimeType;
-        showToast(t('toast.referenceMainEnabled'), "info");
-      }
-
-      if (totalCount > 1) {
-        showToast(t('toast.generatingImages', { count: totalCount }), 'info');
-      }
-
-      // Generate images sequentially
-      let lastError: string | null = null;
-      for (let i = 0; i < totalCount; i++) {
-        try {
-          const img = await generateImageFromPrompt(p, detectedRatio, is4K, refImage, targetMimeType);
-
-          if (img) {
-            // Generate thumbnail for gallery (lightweight)
-            let thumbBase64: string | undefined;
-            try {
-              thumbBase64 = await generateThumbnail(img, 'image/png');
-            } catch (thumbErr) {
-              console.warn('Thumbnail generation failed, using original:', thumbErr);
-            }
-
-            const newItem: HistoryItem = {
-              id: (Date.now() + i).toString(),
-              groupId: state.currentGroupId,
-              timestamp: Date.now() + i,
-              originalImage: state.image!,
-              mimeType: state.mimeType,
-              prompt: p,
-              generatedImage: img,
-              generatedImageThumb: thumbBase64,
-              referenceImages: state.referenceImages?.length ? [...state.referenceImages] : undefined
-            };
-            await saveHistoryItem(newItem);
-            successCount++;
-
-            // Update state: use thumbnail for generatedImages array (gallery)
-            const imageForGallery = thumbBase64 || img;
-            setState(prev => ({
-              ...prev,
-              generatedImage: img, // Full image for current editing
-              generatedImages: [imageForGallery, ...prev.generatedImages].slice(0, 50), // Thumbs for gallery
-              history: [newItem, ...prev.history].slice(0, 50),
-              selectedHistoryIndex: 0
-            }));
-          }
-        } catch (err: any) {
-          console.error(`Failed to generate image ${i + 1}:`, err);
-          const errorMsg = err?.message || "生成失败";
-          lastError = errorMsg;
-
-          // Check for sensitive content error
-          if (errorMsg.includes("敏感信息") || errorMsg.includes("Sensitive Content")) {
-            setState(prev => ({
-              ...prev,
-              isGeneratingImage: false,
-              promptError: "提示词包含敏感信息，请修改后重试"
-            }));
-            showToast(t('toast.generateFailed'), "error", 6000);
-            return; // Stop generation immediately
-          }
-
-          // Check for Quota/429 errors
-          if (errorMsg.includes("429") || errorMsg.includes("exhausted") || errorMsg.includes("quota") || errorMsg.includes("额度")) {
-            setState(prev => ({
-              ...prev,
-              isGeneratingImage: false,
-              // promptError: "今日额度已达上限" // Optional prompt error
-            }));
-            showToast("API 额度已耗尽 (Daily Quota Exceeded)", "error", 6000);
-            return;
-          }
-
-          // Check for sensitive content error
-          if (errorMsg.includes("敏感信息") || errorMsg.includes("Sensitive Content")) {
-            setState(prev => ({
-              ...prev,
-              isGeneratingImage: false,
-              promptError: "提示词包含敏感信息，请修改后重试"
-            }));
-            // Show a longer toast for sensitive content
-            showToast(t('toast.generateFailed'), "error", 6000); // 6 seconds
-            return; // Stop generation immediately
-          }
-
-          // Stop the loop for quota/rate limit errors - no point retrying
-          if (lastError.includes("429") || lastError.includes("额度") || lastError.includes("配额")) {
-            showToast(lastError, 'error');
-            break;
-          }
-        }
-      }
-
-      setState(prev => ({ ...prev, isGeneratingImage: false }));
-
-      if (successCount > 0) {
-        showToast(t('toast.successGenerated', { count: successCount, total: totalCount }), 'success');
-      } else {
-        showToast(t('toast.generateFailed'), "error");
-      }
-    } catch (e: any) {
-      // Show specific error message from geminiService
-      const errorMsg = e?.message || "生成失败";
-      showToast(errorMsg, 'error');
-      setState(prev => ({ ...prev, isGeneratingImage: false }));
-    }
-  };
 
   const setSelectedHistoryIndex = useCallback((index: number) => {
     setState(prev => ({ ...prev, selectedHistoryIndex: index }));
@@ -1594,14 +918,14 @@ const App: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
-                  {state.promptHistory.length > 0 && (
+                  {promptHistory.length > 0 && (
                     <div className="relative">
                       <button
                         onClick={() => setIsHistoryDropdownOpen(!isHistoryDropdownOpen)}
                         className="flex items-center gap-1 px-3 py-2 bg-amber-900/20 text-amber-500 hover:bg-amber-900/40 rounded-lg text-[9px] font-bold transition-colors"
                       >
                         <Icons.History size={10} />
-                        {state.promptHistory.length}
+                        {promptHistory.length}
                       </button>
                       {isHistoryDropdownOpen && (
                         <div
@@ -1610,7 +934,7 @@ const App: React.FC = () => {
                         >
                           {/* Diff Preview Panel */}
                           {hoveredHistoryIndex !== null && (() => {
-                            const entry = state.promptHistory[hoveredHistoryIndex];
+                            const entry = promptHistory[hoveredHistoryIndex];
                             const lines = entry.split('\n');
                             const oldContent = lines.slice(1).join('\n');
                             const hasDiff = hasSignificantDiff(oldContent, state.editablePrompt);
@@ -1634,7 +958,7 @@ const App: React.FC = () => {
 
                           {/* History List */}
                           <div className="w-64 bg-stone-800 border border-stone-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                            {state.promptHistory.map((entry, idx) => {
+                            {promptHistory.map((entry, idx) => {
                               const lines = entry.split('\n');
                               const header = lines[0];
                               const content = lines.slice(1).join('\n');
@@ -2487,9 +1811,8 @@ const App: React.FC = () => {
           <button onClick={() => setIsHelpOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-orange-500 transition-all" title="帮助文档"><Icons.Help size={20} /></button>
           <button
             onClick={() => {
-              const newState = !soundEnabled;
-              setSoundEnabled(newState);
-              soundService.setEnabled(newState);
+              const newState = toggleSound();
+              showToast(newState ? t('nav.sound.enabled') : t('nav.sound.disabled'));
             }}
             className={`p-2.5 rounded-full hover:bg-stone-800 transition-all ${soundEnabled ? 'text-blue-500' : 'text-stone-500'}`}
             title={soundEnabled ? t('nav.sound.enabled') : t('nav.sound.disabled')}

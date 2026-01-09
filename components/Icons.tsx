@@ -9,6 +9,7 @@ import React from 'react';
 import {
     ShieldCheck,
     Eye,
+    EyeOff,
     Compass,
     PenTool,
     ScanEye,
@@ -75,6 +76,7 @@ const createIcon = (Icon: React.ComponentType<LucideProps>) => {
 export const Icons = {
     ShieldCheck: createIcon(ShieldCheck),
     Eye: createIcon(Eye),
+    EyeOff: createIcon(EyeOff),
     Compass: createIcon(Compass),
     PenTool: createIcon(PenTool),
     ScanEye: createIcon(ScanEye),

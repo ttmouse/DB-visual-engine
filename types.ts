@@ -150,3 +150,13 @@ export interface PipelineProgress {
   estimatedTimeRemaining: number | null;
   startTime: number | null;
 }
+
+// UI Tab Types (moved from App.tsx)
+export type TabType = AgentRole.AUDITOR | AgentRole.DESCRIPTOR | AgentRole.ARCHITECT | 'STUDIO';
+
+// Refine Mode Config (moved from App.tsx)
+export type RefineModeConfig = 'optimize-auto' | 'optimize-prompt';
+
+// Reverse Mode Config (moved from App.tsx)
+export type ReverseModeConfig = 'quick-auto' | 'quick-prompt' | 'full-auto' | 'full-prompt';
+
