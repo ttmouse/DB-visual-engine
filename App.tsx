@@ -400,11 +400,8 @@ const App: React.FC = () => {
 
     if (initialOriginalSrc) {
       setDisplayImage(getImageSrc(initialOriginalSrc, historyItem.mimeType));
-    } else if (!isComparisonMode) {
-      // If not in comparison mode, displayImage is usually null or the generated one 
-      // depending on other logic, but let's ensure we don't show the wrong thing.
-      // Actually, if we just switched to this item, we might want to clear displayImage 
-      // if it was showing a previous item's original.
+    } else {
+      // No original image: clear displayImage to avoid showing previous item's image
       setDisplayImage(null);
     }
 

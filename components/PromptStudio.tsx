@@ -337,6 +337,15 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                         editablePrompt: e.target.value,
                         promptError: null // Clear error on edit
                     }))}
+                    onKeyDown={(e) => {
+                        // Shift + Enter: Trigger Generate Button
+                        if (e.key === 'Enter' && e.shiftKey) {
+                            e.preventDefault();
+                            if (!state.isGeneratingImage && state.editablePrompt) {
+                                handleGenerateImage(undefined, generateCount);
+                            }
+                        }
+                    }}
                     onDragOver={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
