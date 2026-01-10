@@ -96,6 +96,10 @@ const App: React.FC = () => {
   // const [isMentionMenuOpen, setIsMentionMenuOpen] = useState(false); // MOVED TO PROMPT STUDIO
   const [hoveredHistoryIndex, setHoveredHistoryIndex] = useState<number | null>(null);
 
+  const setSelectedHistoryIndex = useCallback((index: number) => {
+    setState(prev => ({ ...prev, selectedHistoryIndex: index }));
+  }, []);
+
   const handleSetApiMode = (targetMode: 'official' | 'custom' | 'volcengine') => {
     setApiMode(targetMode);
     const modeLabels: Record<string, string> = {
@@ -367,10 +371,6 @@ const App: React.FC = () => {
   // Helper to load history item
   // Helper to load history item
   // Helper to load history item
-  const setSelectedHistoryIndex = useCallback((index: number) => {
-    setState(prev => ({ ...prev, selectedHistoryIndex: index }));
-  }, []);
-
   const loadHistoryItem = useCallback(async (index: number) => {
     // 1. Check if index is valid
     if (index < 0 || index >= historyRef.current.length) return;
@@ -384,13 +384,14 @@ const App: React.FC = () => {
 
     // Immediately show the prompt and the thumbnail (as a placeholder)
     const thumbSrc = historyItem.generatedImageThumb || historyItem.generatedImage || '';
-    const initialOriginalSrc = historyItem.originalImage || thumbSrc;
+    // We do NOT fallback to thumbSrc for the reference image (originalImage)
+    const initialOriginalSrc = historyItem.originalImage || null;
 
     setState(prev => ({
       ...prev,
       editablePrompt: historyItem.prompt,
       promptCache: { ...prev.promptCache, CN: historyItem.prompt },
-      image: initialOriginalSrc || null,
+      image: initialOriginalSrc,
       mimeType: historyItem.mimeType || 'image/png',
       detectedAspectRatio: historyItem.detectedAspectRatio || '1:1',
       generatedImage: historyItem.generatedImage || thumbSrc || null
@@ -398,6 +399,12 @@ const App: React.FC = () => {
 
     if (initialOriginalSrc) {
       setDisplayImage(getImageSrc(initialOriginalSrc, historyItem.mimeType));
+    } else if (!isComparisonMode) {
+      // If not in comparison mode, displayImage is usually null or the generated one 
+      // depending on other logic, but let's ensure we don't show the wrong thing.
+      // Actually, if we just switched to this item, we might want to clear displayImage 
+      // if it was showing a previous item's original.
+      setDisplayImage(null);
     }
 
     // 3. Background Fetch for Full Details (Non-blocking for previous update)

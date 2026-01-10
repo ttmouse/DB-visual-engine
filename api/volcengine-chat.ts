@@ -49,6 +49,19 @@ export default async function handler(request: Request) {
             body: JSON.stringify(body),
         });
 
+        // Check if streaming is requested
+        if (body.stream === true) {
+            return new Response(volcengineResponse.body, {
+                status: volcengineResponse.status,
+                headers: {
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'Access-Control-Allow-Origin': '*',
+                },
+            });
+        }
+
         // Get the response data
         const data = await volcengineResponse.json();
 

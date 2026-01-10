@@ -327,6 +327,80 @@ async function volcengineVisionCall(
   throw new Error("No response from Volcengine Vision API");
 }
 
+// Volcengine SSE Stream Helper
+async function* streamVolcengineChat(
+  imageBase64: string,
+  prompt: string,
+  mimeType: string = "image/png",
+  signal?: AbortSignal
+): AsyncGenerator<string> {
+  ensureConfigLoaded();
+  const cleanImage = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+
+  const response = await fetch("/api/volcengine-chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${currentConfig.apiKey}`
+    },
+    body: JSON.stringify({
+      // Use user-selected vision model from localStorage, with fallback to default
+      model: localStorage.getItem('unimage_model_vision') || "seed-1-6-250915",
+      stream: true,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${cleanImage}`,
+              detail: "high"
+            }
+          }
+        ]
+      }],
+      max_tokens: 4096
+    }),
+    signal
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Volcengine Stream Error ${response.status}: ${errText}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Failed to get stream reader");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === "data: [DONE]") continue;
+
+      if (trimmed.startsWith("data: ")) {
+        try {
+          const data = JSON.parse(trimmed.slice(6));
+          const text = data.choices?.[0]?.delta?.content || "";
+          if (text) yield text;
+        } catch (e) {
+          // Some chunks might be partial or have other content
+        }
+      }
+    }
+  }
+}
+
 // Volcengine Models API Helper
 // Lists available models for the current API key
 export async function listVolcengineModels(): Promise<{ id: string; type: string }[]> {
@@ -395,7 +469,6 @@ export async function* streamAgentAnalysis(
   mimeType: string = "image/jpeg",
   signal?: AbortSignal
 ) {
-  const client = getClient();
   const agent = AGENTS[role];
   const modelId = modelConfig.reasoning;
 
@@ -408,7 +481,21 @@ export async function* streamAgentAnalysis(
     ${previousContext ? `以下是前序分析步骤的上下文汇总：\n${previousContext}` : "这是流水线的第一阶段。"}
   `;
 
+  ensureConfigLoaded();
+
   try {
+    // Branch for Volcengine mode
+    if (currentConfig.mode === 'volcengine') {
+      const stream = streamVolcengineChat(imageBase64, fullPrompt, mimeType, signal);
+      for await (const chunk of stream) {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+        yield chunk;
+      }
+      return;
+    }
+
+    // Default to Gemini (Official/Custom)
+    const client = getClient();
     const cleanImage = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
     console.log(`[DEBUG] Model: ${modelId}, MimeType: ${mimeType}, ImgLen: ${cleanImage.length}`);
@@ -440,14 +527,35 @@ export async function* streamAgentAnalysis(
 }
 
 export async function translatePrompt(text: string, targetLang: 'CN' | 'EN'): Promise<string> {
-  const client = getClient();
-  const modelId = modelConfig.fast;
-
+  ensureConfigLoaded();
   const prompt = targetLang === 'EN'
     ? `Translate this 7-layer prompt into professional English for Midjourney/Stable Diffusion. Keep the Markdown structure exactly same.\n\n${text}`
     : `将此 7 层架构提示词翻译为中文，保持 Markdown 标题结构：\n\n${text}`;
 
   try {
+    // Branch for Volcengine mode
+    if (currentConfig.mode === 'volcengine') {
+      const response = await fetch("/api/volcengine-chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${currentConfig.apiKey}`
+        },
+        body: JSON.stringify({
+          model: localStorage.getItem('unimage_model_vision') || "seed-1-6-250915",
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+
+      if (!response.ok) return text;
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || text;
+    }
+
+    // Default to Gemini
+    const client = getClient();
+    const modelId = modelConfig.fast;
+
     const response = await client.models.generateContent({
       model: modelId,
       contents: prompt
@@ -460,6 +568,13 @@ export async function translatePrompt(text: string, targetLang: 'CN' | 'EN'): Pr
 }
 
 export async function detectLayout(imageBase64: string, mimeType: string = "image/jpeg"): Promise<LayoutElement[]> {
+  ensureConfigLoaded();
+
+  // Volcengine doesn't standardly support 2D bounding box detection in this project yet
+  if (currentConfig.mode === 'volcengine') {
+    return [];
+  }
+
   const client = getClient();
   const modelId = modelConfig.fast;
   const prompt = "Detect all major visual elements in this image and return their 2D bounding boxes and hierarchy labels (Primary, Secondary, Graphic). Return ONLY valid JSON array.";
@@ -517,6 +632,12 @@ export async function executeSmartAnalysis(
   generatedImage: string,
   currentPrompt: string
 ): Promise<string> {
+  ensureConfigLoaded();
+
+  if (currentConfig.mode === 'volcengine') {
+    return "Volcengine 模式下暂不支持多图对比分析。";
+  }
+
   const client = getClient();
   const modelId = modelConfig.fast;
 
