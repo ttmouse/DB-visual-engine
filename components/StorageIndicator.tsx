@@ -91,17 +91,11 @@ export const StorageIndicator: React.FC = () => {
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            <div className="flex flex-col gap-0.5 w-24">
-                <div className="flex justify-between text-[10px] text-stone-400 font-mono leading-none">
-                    <span>STORAGE</span>
-                    <span>{stats.percent > 0 ? `${stats.percent.toFixed(1)}%` : `${stats.itemCount}张`}</span>
-                </div>
-                <div className="h-1.5 w-full bg-stone-700 rounded-full overflow-hidden">
-                    <div
-                        className={`h-full transition-all duration-500 ease-out ${getColor(stats.percent)}`}
-                        style={{ width: stats.percent > 0 ? `${Math.max(2, stats.percent)}%` : '100%' }}
-                    />
-                </div>
+            <div className="flex items-center gap-2 text-[10px] font-mono">
+                <span className="text-stone-400">STORAGE</span>
+                <span className="text-white font-bold">{stats.itemCount}张</span>
+                <span className="text-stone-600">·</span>
+                <span className="text-emerald-400 font-bold">{formatBytes(stats.totalBytes)}</span>
             </div>
 
             {/* Tooltip */}
