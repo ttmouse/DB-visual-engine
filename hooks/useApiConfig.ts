@@ -9,12 +9,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { configureClient, getModeDefaultModels, configureModels } from '../services/geminiService';
 
 export const useApiConfig = () => {
-    const [apiMode, setApiModeState] = useState<'official' | 'custom' | 'volcengine'>('custom');
+    const [apiMode, setApiModeState] = useState<'official' | 'custom' | 'volcengine' | 'volcengine-cn'>('custom');
     const [activeModelName, setActiveModelName] = useState('Gemini 3.0 Flash');
     const [hasKey, setHasKey] = useState(false);
 
     // Helper to update state and side effects
-    const setApiMode = useCallback((mode: 'official' | 'custom' | 'volcengine') => {
+    const setApiMode = useCallback((mode: 'official' | 'custom' | 'volcengine' | 'volcengine-cn') => {
         setApiModeState(mode);
         localStorage.setItem('unimage_api_mode', mode);
 
@@ -30,7 +30,7 @@ export const useApiConfig = () => {
         };
 
         // Sanitize logic: If we are in Volcengine, force Volcengine defaults if stored is Google
-        if (mode === 'volcengine') {
+        if (mode === 'volcengine' || mode === 'volcengine-cn') {
             if (storedModels.image?.includes('gemini') || storedModels.image?.includes('imagen')) {
                 storedModels.image = modeDefaults.image;
             }
@@ -55,6 +55,7 @@ export const useApiConfig = () => {
         let storedKey = '';
         if (mode === 'official') storedKey = localStorage.getItem('unimage_api_key_official') || localStorage.getItem('unimage_api_key') || '';
         else if (mode === 'volcengine') storedKey = localStorage.getItem('unimage_api_key_volcengine') || '';
+        else if (mode === 'volcengine-cn') storedKey = localStorage.getItem('unimage_api_key_volcengine_cn') || '';
         else storedKey = localStorage.getItem('unimage_api_key_custom') || localStorage.getItem('unimage_api_key') || '';
 
         setHasKey(!!storedKey && storedKey.length > 5);
@@ -69,7 +70,7 @@ export const useApiConfig = () => {
     // Initialize API Configuration
     useEffect(() => {
         // Load API Mode
-        const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine';
+        const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine' | 'volcengine-cn';
 
         // We can call setApiMode(storedMode) to trigger all side effects (configureClient etc.)
         // But we need to be careful about initial render timing. 
@@ -84,7 +85,7 @@ export const useApiConfig = () => {
     }, [setApiMode]);
 
     const switchApiMode = useCallback(() => {
-        const modes: ('official' | 'custom' | 'volcengine')[] = ['official', 'custom', 'volcengine'];
+        const modes: ('official' | 'custom' | 'volcengine' | 'volcengine-cn')[] = ['official', 'custom', 'volcengine', 'volcengine-cn'];
         const nextMode = modes[(modes.indexOf(apiMode) + 1) % modes.length];
         setApiMode(nextMode); // Use the side-effect setter
         return nextMode;

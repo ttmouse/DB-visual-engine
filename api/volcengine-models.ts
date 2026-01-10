@@ -13,7 +13,7 @@ export default async function handler(request: Request) {
             headers: {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Target-Base-URL',
             },
         });
     }
@@ -36,8 +36,14 @@ export default async function handler(request: Request) {
             });
         }
 
+        // Get target base URL from header or use default (SEA)
+        const targetBaseUrl = request.headers.get('X-Target-Base-URL') || 'https://ark.ap-southeast.bytepluses.com/api/v3/';
+        // Ensure ends with slash for concatenation
+        const baseUrl = targetBaseUrl.endsWith('/') ? targetBaseUrl : `${targetBaseUrl}/`;
+        const apiUrl = `${baseUrl}models`;
+
         // Forward the request to Volcengine Models API
-        const volcengineResponse = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/models', {
+        const volcengineResponse = await fetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Authorization': authHeader,
@@ -54,7 +60,7 @@ export default async function handler(request: Request) {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'GET, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Target-Base-URL',
             },
         });
     } catch (error: any) {

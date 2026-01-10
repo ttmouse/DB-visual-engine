@@ -11,12 +11,12 @@ import { Icons } from './Icons';
 import { ImageUploader } from './ImageUploader';
 import { ImageComparisonSlider } from './ImageComparisonSlider';
 import { ImageViewer } from './ImageViewer';
-import { AppState, HistoryItem } from '../types'; // Keep AppState import for type reference if needed, but remove from props
+import { AppState, HistoryItem, LayoutElement } from '../types'; // Keep AppState import for type reference if needed, but remove from props
 import { ImageZoomState } from '../utils/zoom';
 import { extractPromptFromPng } from '../utils/pngMetadata';
 import { getImageSrc, getOriginalFromHistory } from '../utils/imageHelpers';
 import { useI18n } from '../hooks/useI18n';
-import { LayoutData } from '../services/layoutAnalysisService';
+
 
 interface MainVisualizerProps {
     width: number;
@@ -27,7 +27,7 @@ interface MainVisualizerProps {
     selectedHistoryIndex: number;
     history: HistoryItem[];
     currentGeneratedImage: string | null; // NEW PROP: Full resolution image
-    layoutData: LayoutData | null;
+    layoutData: LayoutElement[] | null;
     isAnalyzingLayout: boolean;
     isProcessing: boolean;
 

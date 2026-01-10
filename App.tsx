@@ -116,7 +116,8 @@ const App: React.FC = () => {
     const modeLabels: Record<string, string> = {
       official: '官方 API',
       custom: '自定义',
-      volcengine: '火山引擎'
+      volcengine: '火山引擎 SEA',
+      'volcengine-cn': '火山引擎 CN'
     };
     showToast(`已切换到 ${modeLabels[nextMode] || nextMode} 模式`, 'success');
     // setIsApiDropdownOpen(false); // MOVED
@@ -1195,12 +1196,14 @@ const App: React.FC = () => {
               title="点击切换 API 模式 (Click to Switch)"
               className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border cursor-pointer hover:bg-stone-800 active:scale-95 transition-all ${apiMode === 'official'
                 ? 'border-orange-500/30 text-orange-500'
-                : apiMode === 'volcengine'
-                  ? 'border-blue-600/30 text-blue-500'
-                  : 'border-blue-500/30 text-blue-500'
+                : apiMode === 'volcengine-cn'
+                  ? 'border-cyan-500/30 text-cyan-400'
+                  : apiMode === 'volcengine'
+                    ? 'border-blue-600/30 text-blue-500'
+                    : 'border-blue-500/30 text-blue-500'
                 }`}
             >
-              {apiMode === 'official' ? t('api.official') : (apiMode === 'volcengine' ? '火山引擎' : t('api.custom'))}
+              {apiMode === 'official' ? t('api.official') : (apiMode === 'volcengine-cn' ? '火山引擎 CN' : (apiMode === 'volcengine' ? '海外火山' : t('api.custom')))}
             </button>
           </div>
           <button onClick={handleSelectKey} className={`p-2.5 rounded-full hover:bg-stone-800 ${hasKey ? 'text-emerald-500' : 'text-stone-500'}`} title={t('api.keyStatus')}><Icons.Key size={20} /></button>

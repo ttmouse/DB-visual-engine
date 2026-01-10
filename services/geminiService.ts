@@ -16,7 +16,7 @@ export interface ReverseEngineeringResult {
 }
 
 let ai: GoogleGenAI | null = null;
-let currentConfig = { apiKey: '', baseUrl: '', mode: 'custom' as 'official' | 'custom' | 'volcengine' };
+let currentConfig = { apiKey: '', baseUrl: '', mode: 'custom' as 'official' | 'custom' | 'volcengine' | 'volcengine-cn' };
 
 // Default Model Configuration
 let modelConfig = {
@@ -32,26 +32,36 @@ const FALLBACK_MODELS = [
 ];
 
 // Centralized default models per API mode
-export const getModeDefaultModels = (mode: 'official' | 'custom' | 'volcengine') => {
+export const getModeDefaultModels = (mode: 'official' | 'custom' | 'volcengine' | 'volcengine-cn') => {
   switch (mode) {
     case 'official':
       return {
-        reasoning: 'gemini-3-flash-preview',
-        fast: 'gemini-3-flash-preview',
-        image: 'gemini-3-pro-image-preview'
+        reasoning: 'gemini-2.0-flash-exp',
+        fast: 'gemini-2.0-flash-exp',
+        image: 'imagen-3',
+        vision: 'gemini-2.0-flash-exp'
       };
     case 'volcengine':
       return {
-        reasoning: 'seed-1-6-250915',      // Vision model for analysis
-        fast: 'seed-1-6-250915',           // Vision model for chat
-        image: 'seedream-4-5-251128'       // Image generation model
+        reasoning: 'doubao-vision-pro-32k',
+        fast: 'doubao-vision-pro-32k',
+        image: 'seedream-240528',
+        vision: 'doubao-vision-pro-32k'
+      };
+    case 'volcengine-cn':
+      return {
+        reasoning: 'doubao-seed-1-6-251015',
+        fast: 'doubao-seed-1-6-251015',
+        image: 'doubao-seedream-4-5-251128',
+        vision: 'doubao-seed-1-6-251015'
       };
     case 'custom':
     default:
       return {
-        reasoning: 'gemini-3-pro-high',
-        fast: 'gemini-3-flash',
-        image: 'gemini-3-pro-image'
+        reasoning: 'gemini-1.5-pro-latest',
+        fast: 'gemini-1.5-flash-latest',
+        image: 'gemini-1.5-pro-latest',
+        vision: 'gemini-1.5-pro-latest'
       };
   }
 };
@@ -128,7 +138,7 @@ const translateErrorMessage = (error: any): string => {
   return msg;
 };
 
-export const configureClient = (apiKey: string, baseUrl: string, mode: 'official' | 'custom' | 'volcengine' = 'custom') => {
+export const configureClient = (apiKey: string, baseUrl: string, mode: 'official' | 'custom' | 'volcengine' | 'volcengine-cn' = 'custom') => {
   if (!apiKey) return;
   // Volcengine mode doesn't strictly require baseUrl if we hardcode it, but we can accept it
   if (mode === 'custom' && !baseUrl) return;
@@ -140,8 +150,8 @@ export const configureClient = (apiKey: string, baseUrl: string, mode: 'official
     ai = new GoogleGenAI({
       apiKey: apiKey
     });
-  } else if (mode === 'volcengine') {
-    // Volcengine mode
+  } else if (mode === 'volcengine' || mode === 'volcengine-cn') {
+    // Volcengine modes
     try {
       ai = new GoogleGenAI({ apiKey });
     } catch (e) { console.warn("Failed to init AI client for Volcengine mode", e); }
@@ -172,7 +182,7 @@ export const configureModels = (config: { reasoning?: string; fast?: string; ima
 };
 
 const initModelsFromStorage = () => {
-  const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine';
+  const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine' | 'volcengine-cn';
   const defaults = getModeDefaultModels(storedMode);
 
   // Try mode-specific keys first, fallback to global keys for backward compatibility
@@ -184,7 +194,7 @@ const initModelsFromStorage = () => {
     || localStorage.getItem('unimage_model_image');
 
   // Validate: Ensure models are compatible with current mode
-  if (storedMode === 'volcengine') {
+  if (storedMode === 'volcengine' || storedMode === 'volcengine-cn') {
     // If the stored models look like Gemini models, reset to Volcengine defaults
     if (!r || r.includes('gemini')) r = defaults.reasoning;
     if (!f || f.includes('gemini')) f = defaults.fast;
@@ -206,7 +216,7 @@ const initModelsFromStorage = () => {
 
 // Export helper for saving mode-specific model config
 export const saveModelConfigForMode = (
-  mode: 'official' | 'custom' | 'volcengine',
+  mode: 'official' | 'custom' | 'volcengine' | 'volcengine-cn',
   config: { reasoning?: string; fast?: string; image?: string; vision?: string }
 ) => {
   if (config.reasoning) localStorage.setItem(`unimage_model_reasoning_${mode}`, config.reasoning);
@@ -222,14 +232,14 @@ export const saveModelConfigForMode = (
 };
 
 // Export helper for loading mode-specific model config
-export const loadModelConfigForMode = (mode: 'official' | 'custom' | 'volcengine') => {
+export const loadModelConfigForMode = (mode: 'official' | 'custom' | 'volcengine' | 'volcengine-cn') => {
   const defaults = getModeDefaultModels(mode);
 
   return {
     reasoning: localStorage.getItem(`unimage_model_reasoning_${mode}`) || defaults.reasoning,
     fast: localStorage.getItem(`unimage_model_fast_${mode}`) || defaults.fast,
     image: localStorage.getItem(`unimage_model_image_${mode}`) || defaults.image,
-    vision: localStorage.getItem(`unimage_model_vision_${mode}`) || 'seed-1-6-250915'
+    vision: localStorage.getItem(`unimage_model_vision_${mode}`) || defaults.vision
   };
 };
 
@@ -241,11 +251,12 @@ initModelsFromStorage();
 const getClient = () => {
   if (!ai) {
     const storedUrl = localStorage.getItem('unimage_base_url');
-    const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine';
+    const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine' | 'volcengine-cn';
 
     let storedKey = '';
     if (storedMode === 'official') storedKey = localStorage.getItem('unimage_api_key_official') || localStorage.getItem('unimage_api_key') || '';
     else if (storedMode === 'volcengine') storedKey = localStorage.getItem('unimage_api_key_volcengine') || '';
+    else if (storedMode === 'volcengine-cn') storedKey = localStorage.getItem('unimage_api_key_volcengine_cn') || '';
     else storedKey = localStorage.getItem('unimage_api_key_custom') || localStorage.getItem('unimage_api_key') || '';
 
     if (storedKey) {
@@ -265,11 +276,12 @@ const ensureConfigLoaded = () => {
   if (currentConfig.apiKey) return; // Already configured
 
   const storedUrl = localStorage.getItem('unimage_base_url');
-  const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine';
+  const storedMode = (localStorage.getItem('unimage_api_mode') || 'custom') as 'official' | 'custom' | 'volcengine' | 'volcengine-cn';
 
   let storedKey = '';
   if (storedMode === 'official') storedKey = localStorage.getItem('unimage_api_key_official') || localStorage.getItem('unimage_api_key') || '';
   else if (storedMode === 'volcengine') storedKey = localStorage.getItem('unimage_api_key_volcengine') || '';
+  else if (storedMode === 'volcengine-cn') storedKey = localStorage.getItem('unimage_api_key_volcengine_cn') || '';
   else storedKey = localStorage.getItem('unimage_api_key_custom') || localStorage.getItem('unimage_api_key') || '';
 
   if (storedKey) {
@@ -287,7 +299,8 @@ async function volcengineVisionCall(
 ): Promise<string> {
   const cleanImage = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-  const response = await fetch("/api/volcengine-chat", {
+  const endpoint = currentConfig.mode === 'volcengine-cn' ? "/api/volcengine-cn-chat" : "/api/volcengine-chat";
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -337,7 +350,8 @@ async function* streamVolcengineChat(
   ensureConfigLoaded();
   const cleanImage = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
-  const response = await fetch("/api/volcengine-chat", {
+  const endpoint = currentConfig.mode === 'volcengine-cn' ? "/api/volcengine-cn-chat" : "/api/volcengine-chat";
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -406,12 +420,13 @@ async function* streamVolcengineChat(
 export async function listVolcengineModels(): Promise<{ id: string; type: string }[]> {
   ensureConfigLoaded();
 
-  if (currentConfig.mode !== 'volcengine' || !currentConfig.apiKey) {
+  if ((currentConfig.mode !== 'volcengine' && currentConfig.mode !== 'volcengine-cn') || !currentConfig.apiKey) {
     return [];
   }
 
   try {
-    const response = await fetch("/api/volcengine-models", {
+    const endpoint = currentConfig.mode === 'volcengine-cn' ? "/api/volcengine-cn-models" : "/api/volcengine-models";
+    const response = await fetch(endpoint, {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${currentConfig.apiKey}`
@@ -431,13 +446,20 @@ export async function listVolcengineModels(): Promise<{ id: string; type: string
         let type = 'other';
         const id = m.id.toLowerCase();
 
-        if (id.startsWith('seedream') || id.startsWith('seededit')) {
+        // Image generation models
+        if (id.includes('seedream') || id.includes('seededit') || id.includes('image')) {
           type = 'image';
-        } else if (id.startsWith('seedance')) {
+        }
+        // Video generation models
+        else if (id.includes('seedance') || id.includes('video')) {
           type = 'video';
-        } else if (id.includes('embedding')) {
+        }
+        // Embeddings
+        else if (id.includes('embedding')) {
           type = 'embedding';
-        } else if (id.includes('vision') || id.includes('skylark-vision')) {
+        }
+        // Vision / Multimodal that can act as vision
+        else if (id.includes('vision') || id.includes('skylark-vision')) {
           type = 'vision';
         } else if (id.startsWith('seed-') || id.includes('flash') || id.includes('pro')) {
           // seed-* models (like seed-1-6) are multimodal, can be used for vision
@@ -485,7 +507,7 @@ export async function* streamAgentAnalysis(
 
   try {
     // Branch for Volcengine mode
-    if (currentConfig.mode === 'volcengine') {
+    if (currentConfig.mode === 'volcengine' || currentConfig.mode === 'volcengine-cn') {
       const stream = streamVolcengineChat(imageBase64, fullPrompt, mimeType, signal);
       for await (const chunk of stream) {
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -534,8 +556,9 @@ export async function translatePrompt(text: string, targetLang: 'CN' | 'EN'): Pr
 
   try {
     // Branch for Volcengine mode
-    if (currentConfig.mode === 'volcengine') {
-      const response = await fetch("/api/volcengine-chat", {
+    if (currentConfig.mode === 'volcengine' || currentConfig.mode === 'volcengine-cn') {
+      const endpoint = currentConfig.mode === 'volcengine-cn' ? "/api/volcengine-cn-chat" : "/api/volcengine-chat";
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -571,7 +594,7 @@ export async function detectLayout(imageBase64: string, mimeType: string = "imag
   ensureConfigLoaded();
 
   // Volcengine doesn't standardly support 2D bounding box detection in this project yet
-  if (currentConfig.mode === 'volcengine') {
+  if (currentConfig.mode === 'volcengine' || currentConfig.mode === 'volcengine-cn') {
     return [];
   }
 
@@ -598,7 +621,7 @@ export async function detectLayout(imageBase64: string, mimeType: string = "imag
 }
 
 export async function* streamConsistencyCheck(originalImage: string, generatedImage: string) {
-  if (currentConfig.mode === 'volcengine') {
+  if (currentConfig.mode === 'volcengine' || currentConfig.mode === 'volcengine-cn') {
     yield "Volcengine 模式下暂不支持质检功能 (需 Google Gemini Vision 模型)。";
     return;
   }
@@ -634,7 +657,7 @@ export async function executeSmartAnalysis(
 ): Promise<string> {
   ensureConfigLoaded();
 
-  if (currentConfig.mode === 'volcengine') {
+  if (currentConfig.mode === 'volcengine' || currentConfig.mode === 'volcengine-cn') {
     return "Volcengine 模式下暂不支持多图对比分析。";
   }
 
@@ -703,7 +726,7 @@ ${originalPrompt}
 
   try {
     // VOLCENGINE MODE: Use Chat API for text refinement
-    if (currentConfig.mode === 'volcengine') {
+    if (currentConfig.mode === 'volcengine' || currentConfig.mode === 'volcengine-cn') {
       console.log("[Volcengine] Refining prompt with feedback");
 
       if (refImage) {
@@ -713,7 +736,8 @@ ${originalPrompt}
       } else {
         // Text-only refinement via chat API
         const visionModel = localStorage.getItem('unimage_model_vision') || 'seed-1-6-250915';
-        const response = await fetch("/api/volcengine-chat", {
+        const endpoint = currentConfig.mode === 'volcengine-cn' ? "/api/volcengine-cn-chat" : "/api/volcengine-chat";
+        const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -774,14 +798,13 @@ export async function generateImageFromPrompt(
   ensureConfigLoaded(); // Ensure config is loaded before mode check
 
   // VOLCENGINE LOGIC
-  if (currentConfig.mode === 'volcengine') {
-    // Use overseas Volcengine image models (AP-Southeast endpoint)
-    // seedream-4-5 is the latest and best quality model
-    const modelId = modelConfig.image || 'seedream-4-5-251128';
+  if (currentConfig.mode === 'volcengine' || currentConfig.mode === 'volcengine-cn') {
+    // Use Volcengine image models
+    const modelId = modelConfig.image || (currentConfig.mode === 'volcengine-cn' ? '71d19868-9e3a-47ae-995b-c1ec22de56e1' : 'seedream-4-5-251128');
     // Use proxy endpoint for both dev and production to bypass CORS
     const endpoint = "/api/volcengine";
 
-    console.log(`[Volcengine] Generating with Model: ${modelId}`);
+    console.log(`[Volcengine] Generating with Model: ${modelId} (${currentConfig.mode})`);
 
     // Map aspect ratio to size
     // Volcengine (Seedream) typically supports: 1024x1024, 768x1024, 1024x768 etc.
@@ -871,6 +894,7 @@ export async function generateImageFromPrompt(
         requestBody.image = volcengineImages;
       }
 
+      const endpoint = currentConfig.mode === 'volcengine-cn' ? "/api/volcengine-cn" : "/api/volcengine";
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -1082,7 +1106,7 @@ export async function executeReverseEngineering(
     let content = "";
 
     // VOLCENGINE MODE: Use Doubao Vision API
-    if (currentConfig.mode === 'volcengine') {
+    if (currentConfig.mode === 'volcengine' || currentConfig.mode === 'volcengine-cn') {
       console.log("[Volcengine] Executing reverse engineering with Doubao Vision");
       content = await volcengineVisionCall(imageBase64, promptScript, mimeType);
     } else {

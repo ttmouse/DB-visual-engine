@@ -43,7 +43,7 @@ interface PromptStudioProps {
     handleRegenerateAgent: (role: AgentRole) => void;
     autoGenerateAfterPipelineRef: React.MutableRefObject<boolean>;
     handleChatSendMessage: (message: string, options?: { autoGenerate?: boolean }) => void;
-    handleSetApiMode: (mode: 'official' | 'custom' | 'volcengine') => void;
+    handleSetApiMode: (mode: 'official' | 'custom' | 'volcengine' | 'volcengine-cn') => void;
 
     // Chat/Drawer state
     setIsChatDrawerOpen: (isOpen: boolean) => void;
@@ -59,7 +59,7 @@ interface PromptStudioProps {
 
     // Model info
     activeModelName: string;
-    apiMode: 'official' | 'custom' | 'volcengine';
+    apiMode: 'official' | 'custom' | 'volcengine' | 'volcengine-cn';
 
     // Aspect Ratio
     is4K: boolean;
@@ -810,7 +810,8 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                     disabled={state.isProcessing}
                                 >
                                     <span className={`text-[10px] font-medium transition-colors ${apiMode === 'official' ? 'text-orange-500' :
-                                        apiMode === 'volcengine' ? 'text-blue-500' : 'text-stone-500'
+                                        apiMode === 'volcengine' ? 'text-blue-500' :
+                                            apiMode === 'volcengine-cn' ? 'text-cyan-500' : 'text-stone-500'
                                         }`}>
                                         {activeModelName}
                                     </span>
@@ -861,11 +862,25 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                                 <div className="flex flex-col gap-0.5">
                                                     <div className="flex items-center gap-1.5">
                                                         <Icons.Zap size={12} className={apiMode === 'volcengine' ? 'text-blue-500' : 'text-stone-500'} />
-                                                        <span className={`text-xs font-bold ${apiMode === 'volcengine' ? 'text-blue-400' : 'text-stone-300'}`}>Volcengine</span>
+                                                        <span className={`text-xs font-bold ${apiMode === 'volcengine' ? 'text-blue-400' : 'text-stone-300'}`}>Volcengine (SEA)</span>
                                                     </div>
-                                                    <span className="text-[9px] text-stone-500 pl-4.5">Doubao Vision</span>
+                                                    <span className="text-[9px] text-stone-500 pl-4.5">Doubao Vision (BytePluses)</span>
                                                 </div>
                                                 {apiMode === 'volcengine' && <Icons.Check size={14} className="text-blue-500" />}
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleSetApiMode('volcengine-cn')}
+                                                className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors ${apiMode === 'volcengine-cn' ? 'bg-cyan-900/20' : 'hover:bg-stone-800'}`}
+                                            >
+                                                <div className="flex flex-col gap-0.5">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Icons.Zap size={12} className={apiMode === 'volcengine-cn' ? 'text-cyan-500' : 'text-stone-500'} />
+                                                        <span className={`text-xs font-bold ${apiMode === 'volcengine-cn' ? 'text-cyan-400' : 'text-stone-300'}`}>Volcengine (CN)</span>
+                                                    </div>
+                                                    <span className="text-[9px] text-stone-500 pl-4.5">Doubao Vision (Mainland)</span>
+                                                </div>
+                                                {apiMode === 'volcengine-cn' && <Icons.Check size={14} className="text-cyan-500" />}
                                             </button>
                                         </div>
                                     </>

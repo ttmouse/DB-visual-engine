@@ -8,7 +8,7 @@ interface AspectRatioSelectorProps {
   onRatioChange: (ratio: string) => void;
   on4KChange: (is4K: boolean) => void;
   disabled?: boolean;
-  apiMode?: 'official' | 'custom' | 'volcengine';
+  apiMode?: 'official' | 'custom' | 'volcengine' | 'volcengine-cn';
   language?: 'CN' | 'EN';
 }
 
@@ -86,7 +86,7 @@ export const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({
 
   const ratioOptions = apiMode === 'official'
     ? OFFICIAL_RATIO_OPTIONS
-    : apiMode === 'volcengine'
+    : (apiMode === 'volcengine' || apiMode === 'volcengine-cn')
       ? VOLCENGINE_RATIO_OPTIONS
       : CUSTOM_RATIO_OPTIONS;
   const t = TEXT[language];
@@ -231,10 +231,13 @@ export const AspectRatioSelector: React.FC<AspectRatioSelectorProps> = ({
         </div>
 
         {/* Volcengine Tag */}
-        {apiMode === 'volcengine' && (
+        {(apiMode === 'volcengine' || apiMode === 'volcengine-cn') && (
           <div className="px-2">
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#1d1b4b] text-[#818cf8] border border-[#312e81]">
-              VOLCENGINE
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold border ${apiMode === 'volcengine-cn'
+              ? 'bg-cyan-950/40 text-cyan-400 border-cyan-800'
+              : 'bg-[#1d1b4b] text-[#818cf8] border border-[#312e81]'
+              }`}>
+              {apiMode === 'volcengine-cn' ? 'VOLC.CN' : 'VOLCENGINE'}
             </span>
           </div>
         )}

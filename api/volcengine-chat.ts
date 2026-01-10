@@ -13,7 +13,7 @@ export default async function handler(request: Request) {
             headers: {
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Target-Base-URL',
             },
         });
     }
@@ -39,8 +39,14 @@ export default async function handler(request: Request) {
         // Parse the request body
         const body = await request.json();
 
+        // Get target base URL from header or use default (SEA)
+        const targetBaseUrl = request.headers.get('X-Target-Base-URL') || 'https://ark.ap-southeast.bytepluses.com/api/v3/';
+        // Ensure ends with slash for concatenation
+        const baseUrl = targetBaseUrl.endsWith('/') ? targetBaseUrl : `${targetBaseUrl}/`;
+        const apiUrl = `${baseUrl}chat/completions`;
+
         // Forward the request to Volcengine Chat API
-        const volcengineResponse = await fetch('https://ark.ap-southeast.bytepluses.com/api/v3/chat/completions', {
+        const volcengineResponse = await fetch(apiUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -72,7 +78,7 @@ export default async function handler(request: Request) {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
                 'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Target-Base-URL',
             },
         });
     } catch (error: any) {

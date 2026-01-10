@@ -8,7 +8,7 @@ interface ApiKeyModalProps {
   onClose: () => void;
 }
 
-type ApiMode = 'official' | 'custom' | 'volcengine';
+type ApiMode = 'official' | 'custom' | 'volcengine' | 'volcengine-cn';
 
 interface ProviderConfig {
   id: ApiMode;
@@ -28,10 +28,17 @@ const PROVIDERS: ProviderConfig[] = [
   },
   {
     id: 'volcengine',
-    name: 'Volcengine',
+    name: 'Volcengine (SEA)',
     icon: <Icons.Zap size={18} />,
     color: 'blue',
-    description: '火山引擎 Ark Platform'
+    description: '火山引擎 SEA (bytepluses.com)'
+  },
+  {
+    id: 'volcengine-cn',
+    name: 'Volcengine (CN)',
+    icon: <Icons.Zap size={18} />,
+    color: 'cyan',
+    description: '火山引擎 Mainland (volces.com)'
   },
   {
     id: 'custom',
@@ -49,14 +56,19 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
   const [officialKey, setOfficialKey] = useState('');
   const [customKey, setCustomKey] = useState('');
   const [volcengineKey, setVolcengineKey] = useState('');
+  const [volcengineCnKey, setVolcengineCnKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
 
   // Derived current key for display/logic
-  const currentKey = apiMode === 'official' ? officialKey : (apiMode === 'volcengine' ? volcengineKey : customKey);
+  // Derived current key for display/logic
+  const currentKey = apiMode === 'official' ? officialKey : (apiMode === 'volcengine' ? volcengineKey : (apiMode === 'volcengine-cn' ? volcengineCnKey : customKey));
   const setApiKey = (val: string) => {
-    if (apiMode === 'official') setOfficialKey(val);
-    else if (apiMode === 'volcengine') setVolcengineKey(val);
-    else setCustomKey(val);
+    // Aggressively clean key: remove spaces, tabs, newlines
+    const trimmedVal = val.replace(/\s+/g, '');
+    if (apiMode === 'official') setOfficialKey(trimmedVal);
+    else if (apiMode === 'volcengine') setVolcengineKey(trimmedVal);
+    else if (apiMode === 'volcengine-cn') setVolcengineCnKey(trimmedVal);
+    else setCustomKey(trimmedVal);
   };
 
   // Model Config State
@@ -90,20 +102,17 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
     setOfficialKey(localStorage.getItem('unimage_api_key_official') || (mode === 'official' ? legacyKey : ''));
     setCustomKey(localStorage.getItem('unimage_api_key_custom') || (mode === 'custom' ? legacyKey : ''));
     setVolcengineKey(localStorage.getItem('unimage_api_key_volcengine') || '');
+    setVolcengineCnKey(localStorage.getItem('unimage_api_key_volcengine_cn') || '');
 
     const storedUrl = localStorage.getItem('unimage_base_url') || 'http://127.0.0.1:8045';
     setBaseUrl(storedUrl);
 
-    // Load models for this mode
+    // Load models for this mode (loadModelConfigForMode handles defaults if storage is empty)
     const modelConfig = loadModelConfigForMode(mode);
     setReasoningModel(modelConfig.reasoning);
     setFastModel(modelConfig.fast);
     setImageModel(modelConfig.image);
-
-    const v = localStorage.getItem(`unimage_model_vision_${mode}`)
-      || localStorage.getItem('unimage_model_vision')
-      || 'seed-1-6-250915';
-    setVisionModel(v);
+    setVisionModel(modelConfig.vision);
 
     // Reset status
     setStatus('idle');
@@ -114,20 +123,16 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
   const handleSelectProvider = (mode: ApiMode) => {
     setApiMode(mode);
 
-    // Load defaults for this mode
-    const defaults = getModeDefaultModels(mode);
-    setReasoningModel(defaults.reasoning);
-    setFastModel(defaults.fast);
-    setImageModel(defaults.image);
+    // Load saved config for this mode first
+    const savedConfig = loadModelConfigForMode(mode);
 
-    // Load existing key for this mode
-    if (mode === 'official') {
-      // Keep officialKey as is
-    } else if (mode === 'volcengine') {
-      // Keep volcengineKey as is
-    } else {
-      // Keep customKey as is
-    }
+    // Fallback to defaults only if specific field is missing/empty (which loadModelConfigForMode handles internally somewhat, but let's be safe)
+    setReasoningModel(savedConfig.reasoning);
+    setFastModel(savedConfig.fast);
+    setImageModel(savedConfig.image);
+    setVisionModel(savedConfig.vision);
+
+    // Note: Keys are managed by separate state variables which persist in memory while modal is open
   };
 
   // ESC key to close
@@ -156,28 +161,35 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
     setIsTestLoading(true);
     setStatus('idle');
     try {
-      if (apiMode === 'volcengine') {
-        const response = await fetch("/api/volcengine-chat", {
-          method: 'POST',
+      if (apiMode === 'volcengine' || apiMode === 'volcengine-cn') {
+        const endpoint = apiMode === 'volcengine-cn' ? "/api/volcengine-cn-models" : "/api/volcengine-models";
+
+        // DEBUG: Show actual request details
+        setStatusMsg(`正在连接: ${endpoint}`);
+        console.log(`[Debug] Testing connection to ${endpoint}`);
+
+        const response = await fetch(endpoint, {
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/json',
             'Authorization': `Bearer ${currentKey}`
-          },
-          body: JSON.stringify({
-            model: 'seed-1-6-250915',
-            messages: [{ role: 'user', content: 'ping' }],
-            max_tokens: 1
-          })
+          }
         });
 
         if (response.status === 401 || response.status === 403) {
-          throw new Error(`认证失败 (${response.status})`);
+          const errText = await response.text();
+          console.error('[Debug] Auth Error Body:', errText);
+          throw new Error(`认证失败 (${response.status}) - 请检查 Key`);
         }
         if (response.status >= 500) {
           throw new Error(`服务器错误 (${response.status})`);
         }
+
+        const data = await response.json();
+        console.log('[Debug] Models Response:', data);
+
+        // Success
         setStatus('success');
-        setStatusMsg("连接成功！");
+        setStatusMsg(`连接成功！发现 ${data.data?.length || 0} 个模型`);
       } else {
         let client: GoogleGenAI;
         if (apiMode === 'official') {
@@ -231,7 +243,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
     setIsLoadingModels(true);
     setStatus('idle');
     try {
-      configureClient(volcengineKey, '', 'volcengine');
+      configureClient(currentKey, '', apiMode);
       const models = await listVolcengineModels();
       setAvailableModels(models);
       if (models.length > 0) {
@@ -258,6 +270,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
     localStorage.setItem('unimage_api_key_official', officialKey);
     localStorage.setItem('unimage_api_key_custom', customKey);
     localStorage.setItem('unimage_api_key_volcengine', volcengineKey);
+    localStorage.setItem('unimage_api_key_volcengine_cn', volcengineCnKey);
     localStorage.setItem('unimage_api_key', currentKey);
 
     saveModelConfigForMode(apiMode, {
@@ -290,8 +303,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                 key={provider.id}
                 onClick={() => handleSelectProvider(provider.id)}
                 className={`w-full px-4 py-3 flex items-center gap-3 transition-all text-left border-l-2 ${apiMode === provider.id
-                    ? `border-${provider.color}-500 bg-stone-800/50`
-                    : 'border-transparent hover:bg-stone-800/30'
+                  ? `border-${provider.color}-500 bg-stone-800/50`
+                  : 'border-transparent hover:bg-stone-800/30'
                   }`}
               >
                 <div className={`${apiMode === provider.id ? `text-${provider.color}-400` : 'text-stone-500'}`}>
@@ -375,17 +388,17 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
             </div>
 
             {/* Volcengine Model Discovery */}
-            {apiMode === 'volcengine' && (
-              <div className="p-3 bg-blue-900/20 border border-blue-800/50 rounded-xl space-y-3">
+            {(apiMode === 'volcengine' || apiMode === 'volcengine-cn') && (
+              <div className={`p-3 rounded-xl border space-y-3 ${apiMode === 'volcengine' ? 'bg-blue-900/20 border-blue-800/50' : 'bg-cyan-900/20 border-cyan-800/50'}`}>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-blue-400">
+                  <div className={`flex items-center gap-2 ${apiMode === 'volcengine' ? 'text-blue-400' : 'text-cyan-400'}`}>
                     <Icons.Zap size={14} />
                     <span className="text-xs font-bold">模型发现</span>
                   </div>
                   <button
                     onClick={handleFetchModels}
                     disabled={isLoadingModels}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                    className={`px-3 py-1.5 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 ${apiMode === 'volcengine' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}
                   >
                     {isLoadingModels ? <Icons.RefreshCw size={12} className="animate-spin" /> : <Icons.RefreshCw size={12} />}
                     获取模型
@@ -395,11 +408,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                 {availableModels.length > 0 && (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-[10px] text-blue-300">图像生成</label>
+                      <label className={`text-[10px] ${apiMode === 'volcengine' ? 'text-blue-300' : 'text-cyan-300'}`}>图像生成 (EP ID)</label>
                       <select
                         value={imageModel}
                         onChange={e => setImageModel(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-stone-800 border border-stone-700 rounded-lg text-xs font-mono text-stone-200 focus:border-blue-500 outline-none"
+                        className={`w-full px-2 py-1.5 bg-stone-800 border border-stone-700 rounded-lg text-xs font-mono text-stone-200 outline-none ${apiMode === 'volcengine' ? 'focus:border-blue-500' : 'focus:border-cyan-500'}`}
                       >
                         {availableModels.filter(m => m.type === 'image').map(m => (
                           <option key={m.id} value={m.id}>{m.id}</option>
@@ -407,11 +420,11 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] text-blue-300">视觉理解</label>
+                      <label className={`text-[10px] ${apiMode === 'volcengine' ? 'text-blue-300' : 'text-cyan-300'}`}>视觉理解 (EP ID)</label>
                       <select
                         value={visionModel}
                         onChange={e => setVisionModel(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-stone-800 border border-stone-700 rounded-lg text-xs font-mono text-stone-200 focus:border-blue-500 outline-none"
+                        className={`w-full px-2 py-1.5 bg-stone-800 border border-stone-700 rounded-lg text-xs font-mono text-stone-200 outline-none ${apiMode === 'volcengine' ? 'focus:border-blue-500' : 'focus:border-cyan-500'}`}
                       >
                         {availableModels.filter(m => m.type === 'vision' || m.type === 'multimodal').map(m => (
                           <option key={m.id} value={m.id}>{m.id}</option>
@@ -458,7 +471,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({ isOpen, onClose }) => 
                     className="w-full px-3 py-2 bg-stone-800 border border-stone-700 rounded-lg text-xs font-mono text-stone-200 focus:border-stone-600 outline-none"
                   />
                 </div>
-                {apiMode === 'volcengine' && (
+                {(apiMode === 'volcengine' || apiMode === 'volcengine-cn') && (
                   <div className="space-y-1">
                     <label className="text-[10px] text-stone-500">Vision</label>
                     <input
