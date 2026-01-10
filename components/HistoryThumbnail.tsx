@@ -9,6 +9,7 @@ interface HistoryThumbnailProps {
   onDelete?: (index: number) => void;
   onDownloadHD?: (index: number) => void;
   onContextMenu?: (e: React.MouseEvent, index: number) => void;
+  status?: 'pending' | 'success' | 'error';
 }
 
 export const HistoryThumbnail = memo(({
@@ -19,6 +20,7 @@ export const HistoryThumbnail = memo(({
   onDelete,
   onDownloadHD,
   onContextMenu,
+  status = 'success',
 }: HistoryThumbnailProps) => {
   const handleClick = () => onClick(index);
 
@@ -50,15 +52,23 @@ export const HistoryThumbnail = memo(({
       `}
     >
 
-      {imageUrl && imageUrl !== 'data:image/png;base64,' ? (
+      {status === 'pending' ? (
+        <div className="w-full h-full bg-stone-900 flex flex-col items-center justify-center gap-2">
+          <Icons.Loader2 size={20} className="text-stone-500 animate-spin" />
+        </div>
+      ) : imageUrl && imageUrl !== 'data:image/png;base64,' ? (
         <img
           src={imageUrl}
           alt={`Generated ${index + 1}`}
-          className="w-full h-full object-cover transition-transform duration-200"
+          className={`w-full h-full object-cover transition-transform duration-200 ${status === 'error' ? 'grayscale opacity-50' : ''}`}
         />
       ) : (
         <div className="w-full h-full bg-stone-900 flex items-center justify-center">
-          <Icons.Image size={24} className="text-stone-700" />
+          {status === 'error' ? (
+            <Icons.AlertTriangle size={20} className="text-rose-500" />
+          ) : (
+            <Icons.Image size={24} className="text-stone-700" />
+          )}
         </div>
       )}
 
@@ -80,6 +90,7 @@ export const HistoryThumbnail = memo(({
     prevProps.isActive === nextProps.isActive &&
     prevProps.imageUrl === nextProps.imageUrl &&
     prevProps.index === nextProps.index &&
+    prevProps.status === nextProps.status &&
     // 函数引用通常不需要比较，因为我们假设父组件会传递稳定的引用，
     // 或者如果它们改变了，我们也应该重渲染。
     // 但为了极致性能，假如父组件还没完全优化好，这里可以激进一点：

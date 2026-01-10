@@ -1310,14 +1310,15 @@ const App: React.FC = () => {
           </div>
         ) : (
           <div ref={scrollContainerRef} className="flex-1 flex items-center gap-1 overflow-x-auto overflow-y-hidden w-full h-full py-2 custom-scrollbar px-6">
-            {state.generatedImages.map((img, index) => (
+            {state.history.map((item, index) => (
               <div key={index} id={`history-item-${index}`} className="flex-shrink-0 w-20 h-20 relative">
                 <HistoryThumbnail
-                  imageUrl={`data:image/png;base64,${img}`}
+                  imageUrl={item.generatedImageThumb ? `data:image/png;base64,${item.generatedImageThumb}` : (item.generatedImage ? `data:image/png;base64,${item.generatedImage}` : '')}
                   index={index}
                   isActive={index === state.selectedHistoryIndex}
                   onClick={loadHistoryItem}
                   onDelete={handleDeleteHistoryItem}
+                  status={item.status}
                   onContextMenu={handleHistoryContextMenu}
                 />
               </div>

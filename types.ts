@@ -44,6 +44,7 @@ export interface HistoryItem {
   referenceImages?: ReferenceImage[];
   detectedAspectRatio?: string;
   hasOriginalImage?: boolean; // Transient flag: Indicates if originalImage exists but was stripped for performance
+  status?: 'pending' | 'success' | 'error'; // For visualizing queue state
 }
 
 export interface LayoutElement {
@@ -99,6 +100,9 @@ export interface AppState {
 
   // Error handling
   promptError: string | null;
+
+  // Multi-threaded Generation
+  tasks: GenerationTask[];
 }
 
 export type AgentPromptGenerator = (previousContext: string) => string;
@@ -160,4 +164,20 @@ export type RefineModeConfig = 'optimize-auto' | 'optimize-prompt';
 
 // Reverse Mode Config (moved from App.tsx)
 export type ReverseModeConfig = 'quick-auto' | 'quick-prompt' | 'full-auto' | 'full-prompt';
+
+export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export interface GenerationTask {
+  id: string;
+  status: TaskStatus;
+  prompt: string;
+  aspectRatio: string;
+  is4K: boolean;
+  referenceImage?: string | null;
+  mimeType?: string;
+  error?: string;
+  createdAt: number;
+  completedAt?: number;
+  resultImage?: string;
+}
 

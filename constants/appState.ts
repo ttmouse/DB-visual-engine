@@ -46,7 +46,8 @@ export const createInitialState = (): AppState => ({
     referenceImages: [],
     isComparing: false,
     activeTab: 'STUDIO',
-    promptError: null
+    promptError: null,
+    tasks: []
 });
 
 export const INITIAL_STATE: AppState = createInitialState();

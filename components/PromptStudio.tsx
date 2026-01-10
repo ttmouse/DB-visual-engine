@@ -611,15 +611,17 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                         <div className="relative flex-1 flex min-w-fit">
                             <button
                                 onClick={() => handleGenerateImage(undefined, generateCount)}
-                                disabled={state.isGeneratingImage || !state.editablePrompt}
+                                disabled={!state.editablePrompt}
                                 className="flex-1 px-3 py-2 bg-stone-100 text-black rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap"
                             >
-                                {state.isGeneratingImage ? <Icons.RefreshCw size={14} className="animate-spin" /> : <Icons.Play size={14} />}
-                                {generateCount > 1 ? t('studio.generate.multiple', { count: generateCount }) : t('studio.generate')}
+                                <>
+                                    <Icons.Play size={14} />
+                                    {generateCount > 1 ? t('studio.generate.multiple', { count: generateCount }) : t('studio.generate')}
+                                </>
                             </button>
                             <button
                                 onClick={() => setIsGenerateMenuOpen(!isGenerateMenuOpen)}
-                                disabled={state.isGeneratingImage || !state.editablePrompt}
+                                disabled={!state.editablePrompt}
                                 className="px-2 py-2 bg-stone-100 text-black rounded-r-xl text-xs font-bold flex items-center justify-center disabled:opacity-40 hover:bg-white transition-all border-l border-stone-300"
                             >
                                 <Icons.ChevronDown size={12} className={`transition-transform ${isGenerateMenuOpen ? 'rotate-180' : ''}`} />
@@ -902,7 +904,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                 is4K={is4K}
                                 onRatioChange={setSelectedAspectRatio}
                                 on4KChange={setIs4K}
-                                disabled={state.isGeneratingImage}
+                                disabled={false}
                                 apiMode={apiMode}
                                 language={language}
                             />

@@ -23,6 +23,7 @@ export type I18nKey =
   | 'studio.reverse'
   | 'studio.generate'
   | 'studio.generate.multiple'
+  | 'studio.generating'
   | 'studio.copy'
   | 'studio.chat'
   | 'studio.aiInput.placeholder'
@@ -159,6 +160,7 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'studio.reverse': '逆向',
     'studio.generate': '生成',
     'studio.generate.multiple': '生成 {count} 张',
+    'studio.generating': '生成中...',
     'studio.copy': '复制',
     'studio.chat': '历史',
     'studio.aiInput.placeholder': '输入 AI 指令...',
@@ -294,6 +296,7 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'studio.reverse': 'Reverse',
     'studio.generate': 'Generate',
     'studio.generate.multiple': 'Generate {count}',
+    'studio.generating': 'Generating...',
     'studio.copy': 'Copy',
     'studio.chat': 'History',
     'studio.aiInput.placeholder': 'Enter AI command...',

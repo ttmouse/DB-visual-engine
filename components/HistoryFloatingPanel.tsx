@@ -19,7 +19,7 @@ export const HistoryFloatingPanel: React.FC<HistoryFloatingPanelProps> = ({
     // If no history, maybe don't show the floating panel? Or show a dedicated "Empty" state?
     // User logic in App.tsx showed "No history records".
 
-    if (state.generatedImages.length === 0) {
+    if (state.history.length === 0) {
         return null; // Don't show floating panel if empty? Or show small dot?
         // Let's keep it simple: Hidden if empty to be unobtrusive.
     }
@@ -34,14 +34,15 @@ export const HistoryFloatingPanel: React.FC<HistoryFloatingPanelProps> = ({
                     className="flex items-center gap-2 overflow-x-auto custom-scrollbar px-2 max-w-[800px] max-h-[100px]"
                     style={{ scrollBehavior: 'smooth' }}
                 >
-                    {state.generatedImages.map((img, index) => (
+                    {state.history.map((item, index) => (
                         <div key={index} id={`history-item-${index}`} className="flex-shrink-0 w-16 h-16 relative">
                             <HistoryThumbnail
-                                imageUrl={`data:image/png;base64,${img}`}
+                                imageUrl={item.generatedImageThumb ? `data:image/png;base64,${item.generatedImageThumb}` : (item.generatedImage ? `data:image/png;base64,${item.generatedImage}` : '')}
                                 index={index}
                                 isActive={index === state.selectedHistoryIndex}
                                 onClick={loadHistoryItem}
-                            // onContextMenu={handleHistoryContextMenu} // TODO: Add this back if needed
+                                status={item.status}
+                                onContextMenu={onContextMenu}
                             />
                         </div>
                     ))}
