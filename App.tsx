@@ -367,6 +367,10 @@ const App: React.FC = () => {
   // Helper to load history item
   // Helper to load history item
   // Helper to load history item
+  const setSelectedHistoryIndex = useCallback((index: number) => {
+    setState(prev => ({ ...prev, selectedHistoryIndex: index }));
+  }, []);
+
   const loadHistoryItem = useCallback(async (index: number) => {
     // 1. Check if index is valid
     if (index < 0 || index >= historyRef.current.length) return;
@@ -374,47 +378,56 @@ const App: React.FC = () => {
     const historyItem = historyRef.current[index];
     if (!historyItem) return;
 
-    // 2. Set selected index immediately (Optimistic UI)
+    // 2. Instant Feedback & Optimistic UI Update
+    // We already have index and lightweight historyItem.
     setSelectedHistoryIndex(index);
 
-    // 3. Determine if we need to fetch full data (Lightweight Mode Check)
-    // If originalImage is missing/empty but we have an ID, we likely need to fetch
-    let fullItem = historyItem;
-    // We assume if originalImage is missing, it's a lightweight item. 
-    // Note: Some legacy items might genuinely not have an originalImage if they were text-only, 
-    // but usually they have a base64 string.
-    if (!historyItem.originalImage && historyItem.id) {
-      try {
+    // Immediately show the prompt and the thumbnail (as a placeholder)
+    const thumbSrc = historyItem.generatedImageThumb || historyItem.generatedImage || '';
+    const initialOriginalSrc = historyItem.originalImage || thumbSrc;
 
-        const fetched = await getHistoryItemById(historyItem.id);
-        if (fetched) {
-          fullItem = fetched;
-        }
-      } catch (e) {
-        console.error("Failed to fetch full history item", e);
-        showToast(t('toast.loadFailed'), 'error');
-        return;
-      }
-    }
-
-    // 4. Update UI with (potentially fetched) full data
-    if (fullItem.originalImage) {
-      setDisplayImage(getImageSrc(fullItem.originalImage, fullItem.mimeType));
-    } else {
-      setDisplayImage(null);
-    }
-
-    // 5. Restore state
     setState(prev => ({
       ...prev,
-      editablePrompt: fullItem.prompt,
-      promptCache: { ...prev.promptCache, CN: fullItem.prompt },
-      image: fullItem.originalImage, // This will be the full base64
-      mimeType: fullItem.mimeType || 'image/png',
-      detectedAspectRatio: fullItem.detectedAspectRatio || '1:1',
-      generatedImage: fullItem.generatedImage // This will be the full base64
+      editablePrompt: historyItem.prompt,
+      promptCache: { ...prev.promptCache, CN: historyItem.prompt },
+      image: initialOriginalSrc || null,
+      mimeType: historyItem.mimeType || 'image/png',
+      detectedAspectRatio: historyItem.detectedAspectRatio || '1:1',
+      generatedImage: historyItem.generatedImage || thumbSrc || null
     }));
-  }, [isComparisonMode, t, showToast]); // Added t, showToast dependency
+
+    if (initialOriginalSrc) {
+      setDisplayImage(getImageSrc(initialOriginalSrc, historyItem.mimeType));
+    }
+
+    // 3. Background Fetch for Full Details (Non-blocking for previous update)
+    // If it's a lightweight item, fetch the full res version.
+    if (!historyItem.originalImage && historyItem.id) {
+      try {
+        const fullItem = await getHistoryItemById(historyItem.id);
+
+        // Double check: ensure user is STILL looking at the same item after async fetch
+        if (fullItem && historyRef.current[index]?.id === historyItem.id) {
+          // Atomic update for high-res data if still on this item
+          setState(prev => {
+            if (prev.selectedHistoryIndex !== index) return prev;
+            return {
+              ...prev,
+              image: fullItem.originalImage,
+              generatedImage: fullItem.generatedImage
+            };
+          });
+
+          if (fullItem.originalImage) {
+            setDisplayImage(getImageSrc(fullItem.originalImage, fullItem.mimeType));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch full history item in background", e);
+        // We already have the thumbnail shown, so no need to toast here unless critical
+      }
+    }
+  }, [isComparisonMode, t, showToast, setSelectedHistoryIndex]); // Updated deps
 
   // Keyboard Shortcuts for History and Fullscreen
   // Keyboard Shortcuts for History and Fullscreen
@@ -630,9 +643,7 @@ const App: React.FC = () => {
 
 
 
-  const setSelectedHistoryIndex = useCallback((index: number) => {
-    setState(prev => ({ ...prev, selectedHistoryIndex: index }));
-  }, []);
+
 
   // Handler to delete a history item by index
   const handleDeleteHistoryItem = useCallback(async (index: number) => {
