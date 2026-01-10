@@ -401,8 +401,14 @@ const App: React.FC = () => {
     if (initialOriginalSrc) {
       setDisplayImage(getImageSrc(initialOriginalSrc, historyItem.mimeType));
     } else {
-      // No original image: clear displayImage to avoid showing previous item's image
-      setDisplayImage(null);
+      // No original image in the lightweight item.
+      // CHECK: Does it actually HAVE one that we are about to fetch?
+      // If yes (hasOriginalImage is true), don't clear displayImage yet to avoid flickering.
+      // If no (hasOriginalImage is false/undefined), clear it immediately.
+      // Fallback: If hasOriginalImage is undefined (old data), assume false to be safe (might flicker but correct).
+      if (!historyItem.hasOriginalImage) {
+        setDisplayImage(null);
+      }
     }
 
     // 3. Background Fetch for Full Details (Non-blocking for previous update)
@@ -425,6 +431,9 @@ const App: React.FC = () => {
 
           if (fullItem.originalImage) {
             setDisplayImage(getImageSrc(fullItem.originalImage, fullItem.mimeType));
+          } else {
+            // If we waited because we thought there was an image, but there isn't, clear it now.
+            setDisplayImage(null);
           }
         }
       } catch (e) {

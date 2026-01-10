@@ -123,6 +123,7 @@ export const getHistoryPaginated = async (
               ...fullItem,
               originalImage: '', // Strip
               generatedImage: '', // Strip (ensure thumbnails are used in UI)
+              hasOriginalImage: !!fullItem.originalImage, // Flag to indicate if original exists (to prevent UI flickering)
               // Ensure we have a thumbnail. If not, we might have to fallback (but for performance we assume thumbs exist)
               generatedImageThumb: fullItem.generatedImageThumb || fullItem.generatedImage // Fallback if no thumb, but risky for memory. ideally migrating thumbs.
             };

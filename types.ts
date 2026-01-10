@@ -43,6 +43,7 @@ export interface HistoryItem {
   mimeType?: string;
   referenceImages?: ReferenceImage[];
   detectedAspectRatio?: string;
+  hasOriginalImage?: boolean; // Transient flag: Indicates if originalImage exists but was stripped for performance
 }
 
 export interface LayoutElement {
