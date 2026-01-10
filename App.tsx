@@ -135,6 +135,7 @@ const App: React.FC = () => {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deleteTargetIndex, setDeleteTargetIndex] = useState<number>(-1);
   const [isPromptLabOpen, setIsPromptLabOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState<'CN' | 'EN'>('CN');
@@ -438,22 +439,25 @@ const App: React.FC = () => {
   // 1. When Exiting Comparison Mode: Restore original image to displayImage (if valid)
   // 2. When Entering/Refreshing in Comparison Mode: Ensure displayImage is set (so slider works)
   useEffect(() => {
-    if (state.history.length > 0) {
+    // Ensure displayImage is synchronized with current state
+    if (!displayImage && state.image) {
+      // If displayImage is missing (e.g. refresh), restore from state.image
+      setDisplayImage(getImageSrc(state.image, state.mimeType));
+    } else if (!isComparisonMode && state.image) {
+      // If NOT in comparison mode, always sync displayImage to current original image
+      const currentSrc = getImageSrc(state.image, state.mimeType);
+      if (displayImage !== currentSrc) {
+        setDisplayImage(currentSrc);
+      }
+    } else if (isComparisonMode && !displayImage && state.history.length > 0) {
+      // Fallback: Try to recover from history if for some reason state.image is empty but history exists
       const item = state.history[state.selectedHistoryIndex];
       if (item) {
-        // If we have an item, ensure displayImage is synchronized
-        // Case A: Comparison Mode ON, but displayImage is missing (e.g. refresh) -> Set it
-        if (isComparisonMode && !displayImage) {
-          setDisplayImage(getImageSrc(item.originalImage, item.mimeType));
-        }
-        // Case B: Comparison Mode OFF -> Always sync to current item's original
-        else if (!isComparisonMode) {
-          setDisplayImage(getImageSrc(item.originalImage, item.mimeType));
-        }
+        setDisplayImage(getImageSrc(item.originalImage, item.mimeType));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isComparisonMode, state.history, state.selectedHistoryIndex]); // Updated deps to ensure sync on load/change
+  }, [isComparisonMode, state.image, state.mimeType, state.history, state.selectedHistoryIndex]);
 
 
 
@@ -985,11 +989,22 @@ const App: React.FC = () => {
     setShowProgressView,
     areModalsOpen: isGalleryOpen || isHelpOpen || isKeyModalOpen || !!fullscreenImg || isDeleteConfirmOpen,
     handleDelete: () => {
+      // Global shortcut always targets the currently selected background item
+      // BUT if Gallery is open, the gallery handles its own shortcuts via event capturing.
+      // However, useKeyboardShortcuts checks areModalsOpen.
+      // Since isGalleryOpen makes areModalsOpen true, this block is actually NOT reached when Gallery is open.
+      // So this ONLY handles the main view deletion.
       if (state.history.length > 0 && state.selectedHistoryIndex >= 0) {
+        setDeleteTargetIndex(state.selectedHistoryIndex);
         setIsDeleteConfirmOpen(true);
       }
     }
   });
+
+  const requestDelete = (index: number) => {
+    setDeleteTargetIndex(index);
+    setIsDeleteConfirmOpen(true);
+  };
 
   // Scroll selected history item into view
   useEffect(() => {
@@ -1028,7 +1043,11 @@ const App: React.FC = () => {
         <DeleteConfirmModal
           isOpen={isDeleteConfirmOpen}
           onClose={() => setIsDeleteConfirmOpen(false)}
-          onConfirm={() => handleDeleteHistoryItem(state.selectedHistoryIndex)}
+          onConfirm={() => {
+            if (deleteTargetIndex >= 0) {
+              handleDeleteHistoryItem(deleteTargetIndex);
+            }
+          }}
         />
         <DocumentationModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
@@ -1084,7 +1103,7 @@ const App: React.FC = () => {
           prompts={state.history.map(h => h.prompt)}
           onDownload={handleDownloadHD}
           onEdit={handleGalleryEdit}
-          onDelete={handleDeleteHistoryItem}
+          onDelete={requestDelete}
           onAddToComparison={(index) => {
             const imgUrl = getOriginalFromHistory(state.history, index);
             setDisplayImage(imgUrl);

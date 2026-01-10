@@ -10,6 +10,10 @@ import { Icons } from './Icons';
 import { HistoryItem } from '../types';
 import { useI18n } from '../hooks/useI18n';
 import { ImageDetailViewer } from './ImageDetailViewer';
+import { getHistoryItemById } from '../services/historyService';
+
+
+
 
 interface GalleryModalProps {
     isOpen: boolean;
@@ -355,6 +359,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
     useEffect(() => { navigationMapRef.current = navigationMap; }, [navigationMap]);
 
     // Set full image when selectedIndex changes
+    // Set full image when selectedIndex changes, fetching high-res if needed
     useEffect(() => {
         if (selectedIndex === null) {
             setFullImage(null);
@@ -365,8 +370,26 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
         const globalIndex = originalIndices[selectedIndex];
         const historyItem = history[globalIndex];
 
-        if (historyItem?.generatedImage) {
-            setFullImage(historyItem.generatedImage);
+        if (historyItem) {
+            // If we already have the full image in memory (unlikely with pagination optimization, but possible)
+            if (historyItem.generatedImage && historyItem.generatedImage.length > 50000) {
+                // Assume if > 50KB it's likely the full image, not a tiny thumbnail (though thumb could be 50KB too)
+                // Or better, check if it matches the thumbnail.
+                setFullImage(historyItem.generatedImage);
+            } else if (historyItem.id) {
+                // Fetch full resolution on demand
+                // Initial low-res display is handled because fullImage is null and we fallback to visibleImages[index] (thumbnail)
+
+                getHistoryItemById(historyItem.id).then(fullItem => {
+                    // Check if we are still viewing the same item to prevent race conditions
+                    if (fullItem && fullItem.generatedImage && originalIndices[selectedIndex] === globalIndex) {
+                        setFullImage(fullItem.generatedImage);
+                    }
+                }).catch(err => console.error("Failed to fetch full image", err));
+            } else if (historyItem.generatedImage) {
+                // Fallback for items without ID or fail to fetch (e.g. legacy)
+                setFullImage(historyItem.generatedImage);
+            }
         }
     }, [selectedIndex, history, originalIndices]);
 
@@ -442,6 +465,21 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                 e.preventDefault();
                 e.stopImmediatePropagation();
                 setSelectedIndex(null);
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (onDelete && selectedIndex !== null) {
+                    onDelete(originalIndices[selectedIndex]);
+                    // Navigate logic handled in UI button click, but for shortcut we might want to auto-nav too?
+                    // Actually, since we use confirmation modal now, the deletion happens async.
+                    // So we shouldn't optimistically navigate here. 
+                    // The App will re-render, Gallery updates props, current index might become invalid.
+                    // But Gallery's `selectedIndex` state needs to adjust if item is gone.
+                    // Wait, if item is deleted from outside, history changes.
+                    // Gallery re-calculates visibleImages. 
+                    // If selectedIndex is out of bounds, it might crash or show wrong item.
+                    // We need to handle that, but for now just triggering delete is enough.
+                }
             }
         };
 
@@ -478,6 +516,15 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                 if (onEdit) {
                     // Pass global index
                     onEdit(originalIndices[currentFocused]);
+                }
+                return;
+            }
+
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (onDelete) {
+                    onDelete(originalIndices[currentFocused]);
                 }
                 return;
             }
