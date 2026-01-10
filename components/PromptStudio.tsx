@@ -11,7 +11,8 @@ import { Icons } from './Icons';
 import { AspectRatioSelector } from './AspectRatioSelector';
 import { ReferenceImageList } from './ReferenceImageList';
 import { PromptDiffView } from './PromptDiffView';
-import { AppState, RefineModeConfig, ReverseModeConfig, ReferenceImage, PipelineProgress } from '../types';
+import { ChatSidebar } from './ChatSidebar';
+import { AppState, RefineModeConfig, ReverseModeConfig, ReferenceImage, PipelineProgress, ChatMessage } from '../types';
 import { executeSmartAnalysis, translatePrompt } from '../services/geminiService';
 import { promptManager } from '../services/promptManager';
 import { AgentRole } from '../types';
@@ -48,6 +49,7 @@ interface PromptStudioProps {
     setIsChatDrawerOpen: (isOpen: boolean) => void;
     isChatDrawerOpen: boolean;
     isChatProcessing: boolean;
+    chatMessages: ChatMessage[];
 
     // Fullscreen
     setFullscreenImg: (img: string | null) => void;
@@ -99,6 +101,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
     setIsChatDrawerOpen,
     isChatDrawerOpen,
     isChatProcessing,
+    chatMessages,
     setFullscreenImg,
     handleStopGeneration,
     activeModelName,
@@ -124,6 +127,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
     const [selectedReverseMode, setSelectedReverseMode] = useState<ReverseModeConfig>('quick-auto');
     const [isRefineMenuOpen, setIsRefineMenuOpen] = useState(false);
     const [selectedRefineMode, setSelectedRefineMode] = useState<RefineModeConfig>('optimize-auto');
+    const [isTranslateOpen, setIsTranslateOpen] = useState(false); // New state for translate menu
     const [refineMenuPosition, setRefineMenuPosition] = useState({ top: 0, right: 0 });
     const [aiInput, setAiInput] = useState('');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -137,6 +141,34 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
     const versionButtonRef = useRef<HTMLButtonElement>(null);
     const historyButtonRef = useRef<HTMLButtonElement>(null);
     const refineButtonRef = useRef<HTMLButtonElement>(null);
+    const inputWrapperRef = useRef<HTMLDivElement>(null);
+
+    // Chat Panel Position Logic
+    const [chatPanelPos, setChatPanelPos] = useState({ bottom: 0, right: 0 });
+
+    useEffect(() => {
+        const updatePosition = () => {
+            if (inputWrapperRef.current) {
+                const rect = inputWrapperRef.current.getBoundingClientRect();
+                setChatPanelPos({
+                    bottom: window.innerHeight - rect.top,
+                    right: window.innerWidth - rect.right
+                });
+            }
+        };
+
+        if (isChatDrawerOpen) {
+            updatePosition();
+            window.addEventListener('resize', updatePosition);
+            // Also update on scroll or other layout changes if possible
+            window.addEventListener('scroll', updatePosition);
+        }
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition);
+        };
+    }, [isChatDrawerOpen]);
 
     // Update Refine menu position
     useEffect(() => {
@@ -245,6 +277,55 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                         </div>
                     )
                 }
+
+                {/* Textarea Actions Toolbar - Top Right */}
+                <div className="absolute top-3 right-8 z-30 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    {/* Translate Dropdown */}
+                    <div className="relative">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setIsTranslateOpen(!isTranslateOpen); }}
+                            className="p-1.5 bg-stone-800/80 hover:bg-stone-700 text-stone-400 hover:text-stone-200 rounded-lg backdrop-blur-sm border border-stone-700/50 transition-colors"
+                            title="翻译提示词"
+                        >
+                            <Icons.Languages size={14} />
+                        </button>
+                        {isTranslateOpen && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setIsTranslateOpen(false); }} />
+                                <div className="absolute top-full right-0 mt-1 w-32 bg-stone-800 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden flex flex-col py-1">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleTranslatePrompt('CN'); setIsTranslateOpen(false); }}
+                                        className="text-left px-3 py-2 hover:bg-stone-700 text-xs text-stone-300 flex items-center gap-2"
+                                    >
+                                        <span className="font-bold text-[10px] text-stone-500 w-4">CN</span>
+                                        <span>{t('studio.translateToCN')}</span>
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleTranslatePrompt('EN'); setIsTranslateOpen(false); }}
+                                        className="text-left px-3 py-2 hover:bg-stone-700 text-xs text-stone-300 flex items-center gap-2"
+                                    >
+                                        <span className="font-bold text-[10px] text-stone-500 w-4">EN</span>
+                                        <span>{t('studio.translateToEN')}</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Copy Button */}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(state.editablePrompt);
+                            showToast(t('toast.copied'), 'success');
+                        }}
+                        disabled={!state.editablePrompt}
+                        className="p-1.5 bg-stone-800/80 hover:bg-stone-700 text-stone-400 hover:text-stone-200 rounded-lg backdrop-blur-sm border border-stone-700/50 transition-colors disabled:opacity-50"
+                        title={t('studio.copy')}
+                    >
+                        <Icons.Copy size={14} />
+                    </button>
+                </div>
 
                 <textarea
                     value={showProgressView && pipelineProgress?.steps?.[0]?.streamingContent ? pipelineProgress.steps[0].streamingContent : state.editablePrompt}
@@ -365,28 +446,8 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                             isMentionMenuOpen && (state.image || state.generatedImage) && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setIsMentionMenuOpen(false)} />
-                                    <div className="absolute bottom-full left-0 mb-1 bg-stone-900 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden min-w-[120px]">
-                                        <button
-                                            onClick={() => {
-                                                handleTranslatePrompt('CN');
-                                                setIsMentionMenuOpen(false);
-                                            }}
-                                            className="w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors text-stone-300 whitespace-nowrap"
-                                        >
-                                            <Icons.Languages size={14} />
-                                            <span className="text-xs">{t('studio.translateToCN')}</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                handleTranslatePrompt('EN');
-                                                setIsMentionMenuOpen(false);
-                                            }}
-                                            className="w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors text-stone-300 whitespace-nowrap"
-                                        >
-                                            <Icons.Languages size={14} />
-                                            <span className="text-xs">{t('studio.translateToEN')}</span>
-                                        </button>
-                                        <div className="h-px bg-stone-800 my-1 mx-2" />
+                                    <div className="absolute bottom-full left-0 mb-1 bg-stone-900 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden min-w-[120px] py-1">
+                                        {/* Translation options moved to textarea toolbar */}
                                         {state.image && (
                                             <button
                                                 onClick={() => {
@@ -432,10 +493,12 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                     e.stopPropagation();
                                     setState(prev => ({ ...prev, isVersionDropdownOpen: !prev.isVersionDropdownOpen }));
                                 }}
-                                className="flex items-center gap-1 p-2 bg-stone-800 hover:bg-stone-700 rounded-xl text-stone-300 transition-colors border border-stone-700"
+                                className="flex items-center gap-1 p-2 bg-stone-800 hover:bg-stone-700 rounded-xl text-stone-300 transition-colors border border-stone-700 min-w-[3rem] justify-center"
                                 title={`版本: ${promptManager.getVersions(AgentRole.SYNTHESIZER).find(v => v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER))?.name || '默认'}`}
                             >
-                                <Icons.History size={14} />
+                                <span className="text-xs font-bold text-stone-400">
+                                    P{promptManager.getVersions(AgentRole.SYNTHESIZER).findIndex(v => v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER)) + 1}
+                                </span>
                                 <Icons.ChevronDown size={10} className={`transition-transform text-stone-500 ${state.isVersionDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {state.isVersionDropdownOpen && ReactDOM.createPortal(
@@ -466,7 +529,10 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                                     }`}
                                             >
                                                 {v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER) && <Icons.Check size={12} />}
-                                                <span>P{promptManager.getVersions(AgentRole.SYNTHESIZER).findIndex(ver => ver.id === v.id) + 1}</span>
+                                                <span className={v.id !== promptManager.getActiveVersionId(AgentRole.SYNTHESIZER) ? 'pl-5' : ''}>
+                                                    <span className="opacity-50 mr-2 font-mono">P{promptManager.getVersions(AgentRole.SYNTHESIZER).findIndex(ver => ver.id === v.id) + 1}</span>
+                                                    <span>{v.name || 'Untitled'}</span>
+                                                </span>
                                             </div>
                                         ))}
                                     </div>
@@ -563,7 +629,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                                 className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${num === generateCount ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
                                             >
                                                 {num === generateCount && <Icons.Check size={12} />}
-                                                <span>生成 {num} 张</span>
+                                                <span className={num !== generateCount ? 'pl-5' : ''}>生成 {num} 张</span>
                                             </div>
                                         ))}
                                     </div>
@@ -571,29 +637,21 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                             )}
                         </div>
                     </div>
-                    <button
-                        onClick={() => { navigator.clipboard.writeText(state.editablePrompt); showToast(t('toast.copied'), 'success'); }}
-                        disabled={!state.editablePrompt}
-                        className="px-3 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-40 transition-all flex-shrink-0"
-                        title={t('studio.copy')}
-                    >
-                        <Icons.Copy size={14} />
-                        {t('studio.copy')}
-                    </button>
+                    {/* Copy button removed from here */}
                     <button
                         onClick={() => setIsChatDrawerOpen(!isChatDrawerOpen)}
                         className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all flex-shrink-0 ${isChatDrawerOpen ? 'bg-amber-900/30 text-amber-400' : 'bg-stone-800 text-stone-500 hover:text-stone-300'}`}
                         title={t('studio.chat')}
                     >
                         <Icons.MessageSquare size={14} />
-                        {t('studio.chat')}
                     </button>
                 </div >
 
                 {/* AI Input Area - Two Row Layout */}
-                < div className="bg-stone-800 rounded-xl border border-stone-700" >
+                <div ref={inputWrapperRef} className="bg-stone-800 rounded-xl border border-stone-700">
                     {/* Top Row: Text Input */}
-                    < div className="px-3 pt-2.5 pb-0" >
+                    <div className="px-3 pt-2.5 pb-0">
+
                         <textarea
                             ref={(el) => {
                                 if (el) {
@@ -935,23 +993,28 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                     </div >
                 </div >
             </div >
-
-            {/* 进度视图覆盖层 - 改为 Inline 模式，不再显示遮罩 */}
-            {/* {
-            showProgressView && pipelineProgress && (
-              <PipelineProgressView
-                progress={pipelineProgress}
-                onHide={() => setShowProgressView(false)}
-                onCancel={() => {
-                  // 取消流水线逻辑
-                  resetPipeline();
-                  setShowProgressView(false);
-                  setState(prev => ({ ...prev, isProcessing: false }));
-                  isPipelineRunning.current = false;
-                }}
-              />
-            )
-          } */}
+            {/* Floating Chat Panel Portal - Anchored to Input Box */}
+            {isChatDrawerOpen && ReactDOM.createPortal(
+                <div
+                    className="fixed z-[100] flex flex-col justify-end pointer-events-none"
+                    style={{
+                        bottom: chatPanelPos.bottom + 58, // Add padding (8 + 50px offset)
+                        right: chatPanelPos.right
+                    }}
+                >
+                    {/* Content Wrapper - Fixed size popover growing upwards */}
+                    <div className="flex flex-col w-96 h-[600px] max-h-[70vh] pointer-events-auto bg-stone-900/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.3)] border border-stone-700/50 transition-all duration-200 origin-bottom-right animate-in zoom-in-95 slide-in-from-bottom-2">
+                        <ChatSidebar
+                            isOpen={isChatDrawerOpen}
+                            onClose={() => setIsChatDrawerOpen(false)}
+                            messages={chatMessages}
+                            width={384}
+                            resizable={false}
+                        />
+                    </div>
+                </div>,
+                document.body
+            )}
         </div >
     );
 };

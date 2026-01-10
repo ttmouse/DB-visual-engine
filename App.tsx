@@ -43,6 +43,8 @@ import { ChatPanel } from './components/ChatPanel';
 import { ChatDrawer } from './components/ChatDrawer';
 import { PanelHeader } from './components/PanelHeader';
 import { LandingPage } from './components/LandingPage';
+import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+
 
 // Lazy load heavy modal components for better initial load performance
 const DocumentationModal = React.lazy(() => import('./components/DocumentationModal').then(m => ({ default: m.DocumentationModal })));
@@ -132,6 +134,7 @@ const App: React.FC = () => {
   }, [isComparisonMode]);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isPromptLabOpen, setIsPromptLabOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState<'CN' | 'EN'>('CN');
@@ -200,7 +203,15 @@ const App: React.FC = () => {
     min: 500,
     max: 800,
     isPercentage: false,
-    direction: 'right'
+    direction: 'right',
+    // Dynamic max calculates: Container - Left Panel - Middle Panel Min Width (500)
+    dynamicMax: (containerWidth) => {
+      // Calculate Left Panel Width in Pixels
+      const leftPx = (containerWidth * leftPanelWidth) / 100;
+      // Remaining space needed for Middle Panel
+      const middleMin = 500;
+      return Math.max(300, containerWidth - leftPx - middleMin);
+    }
   });
   // Removed isGlobalDragging state as we use localized drop zones now
   // const [isAnalyzing, setIsAnalyzing] = useState(false); // MOVED - unused here
@@ -420,25 +431,29 @@ const App: React.FC = () => {
 
   // Keyboard shortcuts
   // Keyboard shortcuts
-  useKeyboardShortcuts({
-    setIsGalleryOpen,
-    setIsHelpOpen,
-    handleReset,
-    setIsComparisonMode,
-    setIsPromptLabOpen,
-    showProgressView,
-    setShowProgressView,
-    areModalsOpen: isGalleryOpen || isHelpOpen || isKeyModalOpen || !!fullscreenImg
-  });
+  // Keyboard shortcuts moved to bottom to access handlers
 
   // Sync displayImage when exiting comparison mode (恢复显示当前选中的图片的原始图)
+  // Sync displayImage logic:
+  // 1. When Exiting Comparison Mode: Restore original image to displayImage (if valid)
+  // 2. When Entering/Refreshing in Comparison Mode: Ensure displayImage is set (so slider works)
   useEffect(() => {
-    if (!isComparisonMode && state.history.length > 0) {
+    if (state.history.length > 0) {
       const item = state.history[state.selectedHistoryIndex];
-      if (item) setDisplayImage(getImageSrc(item.originalImage, item.mimeType));
+      if (item) {
+        // If we have an item, ensure displayImage is synchronized
+        // Case A: Comparison Mode ON, but displayImage is missing (e.g. refresh) -> Set it
+        if (isComparisonMode && !displayImage) {
+          setDisplayImage(getImageSrc(item.originalImage, item.mimeType));
+        }
+        // Case B: Comparison Mode OFF -> Always sync to current item's original
+        else if (!isComparisonMode) {
+          setDisplayImage(getImageSrc(item.originalImage, item.mimeType));
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isComparisonMode]); // 仅在模式切换时执行，避免普通切换时的冗余更新
+  }, [isComparisonMode, state.history, state.selectedHistoryIndex]); // Updated deps to ensure sync on load/change
 
 
 
@@ -639,13 +654,15 @@ const App: React.FC = () => {
     newHistory.splice(index, 1);
 
     // Determine new index
+    // Determine new index (Prefer Next)
     let newIndex = state.selectedHistoryIndex;
-    if (index <= state.selectedHistoryIndex) {
-      if (newHistory.length === 0) newIndex = 0;
-      else if (state.selectedHistoryIndex === 0) newIndex = 0;
-      else newIndex = state.selectedHistoryIndex - 1;
+    if (index < state.selectedHistoryIndex) {
+      newIndex = Math.max(0, state.selectedHistoryIndex - 1);
+    } else if (index === state.selectedHistoryIndex) {
+      // Stay at index (next item), but fallback if we were last
+      newIndex = Math.min(index, newHistory.length - 1);
+      newIndex = Math.max(0, newIndex);
     }
-    if (newIndex >= newHistory.length) newIndex = Math.max(0, newHistory.length - 1);
 
     // 5. Fetch Full Data for the *New* Selected Item (if safe)
     let nextFullItem: HistoryItem | null | undefined = newHistory[newIndex];
@@ -950,8 +967,31 @@ const App: React.FC = () => {
 
   if (showLanding) return <LandingPage onEnterApp={() => setShowLanding(false)} hasKey={hasKey} onSelectKey={handleSelectKey} />;
 
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    setIsGalleryOpen,
+    setIsHelpOpen,
+    handleReset,
+    toggleComparison: () => {
+      const next = !isComparisonMode;
+      setIsComparisonMode(next);
+      // Ensure display image is set for comparison
+      if (next && !displayImage && state.image) {
+        setDisplayImage(getImageSrc(state.image, state.mimeType));
+      }
+    },
+    setIsPromptLabOpen,
+    showProgressView,
+    setShowProgressView,
+    areModalsOpen: isGalleryOpen || isHelpOpen || isKeyModalOpen || !!fullscreenImg || isDeleteConfirmOpen,
+    handleDelete: () => {
+      if (state.history.length > 0 && state.selectedHistoryIndex >= 0) {
+        setIsDeleteConfirmOpen(true);
+      }
+    }
+  });
+
   // Scroll selected history item into view
-  // Scroll selected history item into view with Page Flip logic
   useEffect(() => {
     if (state.generatedImages.length > 0) {
       const el = document.getElementById(`history-item-${state.selectedHistoryIndex}`);
@@ -961,29 +1001,20 @@ const App: React.FC = () => {
         const itemRect = el.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
 
-        // Define margin of error (e.g. 10px) to consider "at edge"
-        const isOffScreenRight = itemRect.right > containerRect.right + 2;
-        const isOffScreenLeft = itemRect.left < containerRect.left - 2;
-
-        // Check distance to determine if it's a "Deep Jump" (e.g. restore from cache) or just simple navigation
         const distRight = itemRect.right - containerRect.right;
         const distLeft = containerRect.left - itemRect.left;
         const width = container.clientWidth;
 
-        // If very far off-screen (> 1 page), just jump to it (Center it to be safe)
-        if (distRight > width || distLeft > width) {
-          el.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
-        }
-        // Otherwise, use Page Flip logic for smooth browsing
-        else if (distRight > 2) {
-          // Scroll right by a full page
-          container.scrollBy({ left: width * 0.8, behavior: 'smooth' });
-        } else if (distLeft > 2) {
-          // Scroll left by a full page
-          container.scrollBy({ left: -width * 0.8, behavior: 'smooth' });
-        } else {
-          // Standard visibility check for partially visible items
-          el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        // Simplified Logic: Always ensure visibility with context
+        if (distRight > 2 || distLeft > 2) {
+          // If the jump is large (more than 2 pages), snap instantly to avoid disorientation
+          const isDeepJump = distRight > width * 2 || distLeft > width * 2;
+
+          el.scrollIntoView({
+            behavior: isDeepJump ? 'auto' : 'smooth',
+            block: 'nearest',
+            inline: 'center'
+          });
         }
       }
     }
@@ -994,6 +1025,11 @@ const App: React.FC = () => {
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       {/* Lazy-loaded modals with Suspense fallback */}
       <React.Suspense fallback={null}>
+        <DeleteConfirmModal
+          isOpen={isDeleteConfirmOpen}
+          onClose={() => setIsDeleteConfirmOpen(false)}
+          onConfirm={() => handleDeleteHistoryItem(state.selectedHistoryIndex)}
+        />
         <DocumentationModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
         <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
@@ -1192,6 +1228,7 @@ const App: React.FC = () => {
               setIsChatDrawerOpen={setIsChatDrawerOpen}
               isChatDrawerOpen={isChatDrawerOpen}
               isChatProcessing={isChatProcessing}
+              chatMessages={chatMessages} // Added prop
               setFullscreenImg={setFullscreenImg}
               handleStopGeneration={handleStopGeneration}
               activeModelName={activeModelName}
@@ -1212,16 +1249,9 @@ const App: React.FC = () => {
         />
 
 
-        {/* Third Column: Chat Panel (inline, not overlay) */}
-        <ChatSidebar
-          isOpen={isChatDrawerOpen}
-          onClose={() => setIsChatDrawerOpen(false)}
-          messages={chatMessages}
-          width={rightPanelWidth}
-          onResizeStart={() => setIsDraggingRightDivider(true)}
-          isResizing={isDraggingRightDivider}
-        />
       </main>
+
+
 
       {/* Persistence History Bottom Bar */}
       {/* Persistence History Bottom Bar */}

@@ -43,7 +43,8 @@ export const useResizablePanel = (
 
     const [width, setWidth] = useState(() => {
         const saved = localStorage.getItem(storageKey);
-        return saved ? parseFloat(saved) : defaultValue;
+        const val = saved ? parseFloat(saved) : defaultValue;
+        return Math.max(min, Math.min(val, max));
     });
     const [isDragging, setIsDragging] = useState(false);
 

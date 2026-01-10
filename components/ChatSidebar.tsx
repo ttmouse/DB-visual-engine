@@ -15,8 +15,9 @@ interface ChatSidebarProps {
     onClose: () => void;
     messages: ChatMessage[];
     width: number;
-    onResizeStart: () => void;
-    isResizing: boolean;
+    onResizeStart?: () => void;
+    isResizing?: boolean;
+    resizable?: boolean;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
@@ -25,19 +26,22 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     messages,
     width,
     onResizeStart,
-    isResizing
+    isResizing,
+    resizable = true
 }) => {
     if (!isOpen) return null;
 
     return (
         <>
-            {/* Draggable Divider for right panel */}
-            <div
-                onMouseDown={onResizeStart}
-                className={`w-2 flex-shrink-0 cursor-col-resize flex items-center justify-center group hover:bg-stone-700/50 transition-colors ${isResizing ? 'bg-orange-500/30' : ''}`}
-            >
-                <div className={`w-0.5 h-12 rounded-full transition-colors ${isResizing ? 'bg-orange-500' : 'bg-stone-700 group-hover:bg-stone-500'}`} />
-            </div>
+            {/* Draggable Divider for right panel (Only if resizable) */}
+            {resizable && onResizeStart && (
+                <div
+                    onMouseDown={onResizeStart}
+                    className={`w-2 flex-shrink-0 cursor-col-resize flex items-center justify-center group hover:bg-stone-700/50 transition-colors ${isResizing ? 'bg-orange-500/30' : ''}`}
+                >
+                    <div className={`w-0.5 h-12 rounded-full transition-colors ${isResizing ? 'bg-orange-500' : 'bg-stone-700 group-hover:bg-stone-500'}`} />
+                </div>
+            )}
 
             {/* Chat Column */}
             <div style={{ width: `${width}px` }} className="flex-shrink-0 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">

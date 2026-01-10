@@ -12,8 +12,9 @@ interface KeyboardShortcutsProps {
     setIsGalleryOpen: (open: boolean) => void;
     setIsHelpOpen: (open: boolean) => void;
     handleReset: () => void;
-    setIsComparisonMode: Dispatch<SetStateAction<boolean>>;
+    toggleComparison: () => void;
     setIsPromptLabOpen: Dispatch<SetStateAction<boolean>>;
+    handleDelete: () => void;
 
     // Progress view
     showProgressView: boolean;
@@ -27,8 +28,9 @@ export const useKeyboardShortcuts = ({
     setIsGalleryOpen,
     setIsHelpOpen,
     handleReset,
-    setIsComparisonMode,
+    toggleComparison,
     setIsPromptLabOpen,
+    handleDelete,
     showProgressView,
     setShowProgressView,
     areModalsOpen
@@ -50,6 +52,7 @@ export const useKeyboardShortcuts = ({
         const handleGlobalShortcuts = (e: KeyboardEvent) => {
             // Skip if inputs focused
             if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            if ((document.activeElement as HTMLElement).isContentEditable) return;
             // Skip if modals open
             if (areModalsOpen) return;
 
@@ -66,13 +69,17 @@ export const useKeyboardShortcuts = ({
                 handleReset();
             } else if (key === 'c') {
                 e.preventDefault();
-                setIsComparisonMode(prev => !prev);
+                toggleComparison();
             } else if (key === 'a') {
                 e.preventDefault();
                 document.getElementById('reference-image-input')?.click();
             } else if (key === 'p') {
                 e.preventDefault();
                 setIsPromptLabOpen(prev => !prev);
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                // Delete
+                e.preventDefault();
+                handleDelete();
             }
         };
 
@@ -83,7 +90,8 @@ export const useKeyboardShortcuts = ({
         setIsGalleryOpen,
         setIsHelpOpen,
         handleReset,
-        setIsComparisonMode,
-        setIsPromptLabOpen
+        toggleComparison,
+        setIsPromptLabOpen,
+        handleDelete
     ]);
 };
