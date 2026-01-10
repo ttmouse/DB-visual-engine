@@ -129,7 +129,10 @@ export type I18nKey =
   | 'toast.imageAddedToReference'
   | 'comparison.original'
   | 'comparison.selected'
-  | 'comparison.generated';
+  | 'comparison.generated'
+  | 'toast.loading'
+  | 'toast.loadFailed'
+  | 'toast.addedToComparison';
 
 export const translations: Record<Language, Record<I18nKey, string>> = {
   CN: {
@@ -261,7 +264,10 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'toast.imageAddedToReference': '已添加图片到参考区域',
     'comparison.original': '原图',
     'comparison.selected': '自选',
-    'comparison.generated': '生成'
+    'comparison.generated': '生成',
+    'toast.loading': '正在加载...',
+    'toast.loadFailed': '加载失败',
+    'toast.addedToComparison': '已添加到对比模式'
   },
 
   EN: {
@@ -393,7 +399,10 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'toast.imageAddedToReference': 'Image added to reference area',
     'comparison.original': 'ORIGINAL',
     'comparison.selected': 'SELECTED',
-    'comparison.generated': 'GENERATED'
+    'comparison.generated': 'GENERATED',
+    'toast.loading': 'Loading...',
+    'toast.loadFailed': 'Load Failed',
+    'toast.addedToComparison': 'Added to Comparison'
   }
 };
 

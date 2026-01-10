@@ -11,17 +11,26 @@ import { Icons } from './Icons';
 import { ImageUploader } from './ImageUploader';
 import { ImageComparisonSlider } from './ImageComparisonSlider';
 import { ImageViewer } from './ImageViewer';
-import { AppState } from '../types';
+import { AppState, HistoryItem } from '../types'; // Keep AppState import for type reference if needed, but remove from props
 import { ImageZoomState } from '../utils/zoom';
 import { extractPromptFromPng } from '../utils/pngMetadata';
 import { getImageSrc, getOriginalFromHistory } from '../utils/imageHelpers';
 import { useI18n } from '../hooks/useI18n';
+import { LayoutData } from '../services/layoutAnalysisService';
 
 interface MainVisualizerProps {
     width: number;
     isDraggingDivider: boolean;
     onResizeStart: () => void;
-    state: AppState;
+    // Granular props to prevent DevTools OOM on large state objects
+    generatedImages: string[];
+    selectedHistoryIndex: number;
+    history: HistoryItem[];
+    currentGeneratedImage: string | null; // NEW PROP: Full resolution image
+    layoutData: LayoutData | null;
+    isAnalyzingLayout: boolean;
+    isProcessing: boolean;
+
     displayImage: string | null;
     isComparisonMode: boolean;
     setIsComparisonMode: (v: boolean) => void;
@@ -42,7 +51,13 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
     width,
     isDraggingDivider,
     onResizeStart,
-    state,
+    generatedImages = [], // FIX: Default to empty array to prevent undefined.length crash
+    selectedHistoryIndex = 0,
+    history = [],
+    currentGeneratedImage,
+    layoutData,
+    isAnalyzingLayout,
+    isProcessing,
     displayImage,
     isComparisonMode,
     setIsComparisonMode,
@@ -113,13 +128,18 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
         reader.readAsDataURL(file);
     };
 
+    // Determine the active generated image source. prefer prop, fallback to history helper
+    const activeGeneratedImage = currentGeneratedImage
+        ? getImageSrc(currentGeneratedImage, 'image/png')
+        : getOriginalFromHistory(history, selectedHistoryIndex);
+
     return (
         <>
             {/* Left Panel: Image Display */}
             <div style={{ width: `${width}%` }} className="flex-shrink-0 flex flex-col h-full bg-stone-900 rounded-xl border border-stone-800 overflow-hidden shadow-sm">
                 <PanelHeader title={t('panel.visualAssets')}>
                     <div className="flex items-center gap-2">
-                        {state.generatedImages.length > 0 && (
+                        {generatedImages.length > 0 && (
                             <>
                                 <div className="flex items-center gap-2 mr-2 border-r border-stone-800 pr-3">
                                     <span className={`text-[9px] font-bold uppercase transition-colors ${isComparisonMode ? 'text-orange-500' : 'text-stone-500'}`}>Compare</span>
@@ -132,7 +152,7 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
                                 </div>
 
                                 <button
-                                    onClick={() => handleDownloadHD(state.selectedHistoryIndex)}
+                                    onClick={() => handleDownloadHD(selectedHistoryIndex)}
                                     className="p-1.5 text-stone-500 hover:text-emerald-400 transition-colors rounded-lg hover:bg-emerald-900/20"
                                     title="Download HD"
                                 >
@@ -171,37 +191,38 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
                         <div className="absolute inset-0 z-50 bg-orange-500/20 backdrop-blur-sm flex items-center justify-center pointer-events-none">
                             <div className="bg-orange-500 text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 shadow-xl">
                                 <Icons.Upload size={18} />
+                                <Icons.Upload size={18} />
                                 拖放以开始新的逆向
                             </div>
                         </div>
                     )}
 
-                    {!displayImage && !(state.generatedImages.length > 0 && state.selectedHistoryIndex >= 0) ? (
-                        <ImageUploader key={uploaderKey} onImageSelected={handleFileSelected} disabled={state.isProcessing} />
+                    {!displayImage && !(generatedImages.length > 0 && selectedHistoryIndex >= 0) ? (
+                        <ImageUploader key={uploaderKey} onImageSelected={handleFileSelected} disabled={isProcessing} />
                     ) : (
                         <div className="w-full h-full flex flex-col animate-in fade-in duration-500">
-                            {state.generatedImages.length > 0 && state.selectedHistoryIndex >= 0 ? (
+                            {generatedImages.length > 0 && selectedHistoryIndex >= 0 ? (
                                 displayImage && isComparisonMode ? (
                                     <ImageComparisonSlider
                                         beforeImage={displayImage}
-                                        afterImage={getOriginalFromHistory(state.history, state.selectedHistoryIndex)}
-                                        beforeLabel={displayImage === getImageSrc(state.history[state.selectedHistoryIndex]?.originalImage, state.history[state.selectedHistoryIndex]?.mimeType) ? t('comparison.original') : t('comparison.selected')}
+                                        afterImage={activeGeneratedImage}
+                                        beforeLabel={displayImage === getImageSrc(history[selectedHistoryIndex]?.originalImage, history[selectedHistoryIndex]?.mimeType) ? t('comparison.original') : t('comparison.selected')}
                                         afterLabel={t('comparison.generated')}
                                         className="w-full h-full border-0 rounded-none bg-stone-950/50"
-                                        layoutData={state.layoutData}
-                                        isAnalyzingLayout={state.isAnalyzingLayout}
+                                        layoutData={layoutData}
+                                        isAnalyzingLayout={isAnalyzingLayout}
                                         onFullscreen={() => { setFullscreenImg(displayImage); setIsFullscreenComparison(true); }}
                                         zoom={imageZoom}
                                         onZoomChange={handleZoomChange}
                                     />
                                 ) : (
                                     <ImageViewer
-                                        src={getOriginalFromHistory(state.history, state.selectedHistoryIndex)}
+                                        src={activeGeneratedImage}
                                         alt="Generated Result"
                                         className="w-full h-full border-0 rounded-none bg-stone-950/50"
-                                        layoutData={state.layoutData}
-                                        isAnalyzingLayout={state.isAnalyzingLayout}
-                                        onFullscreen={() => setFullscreenImg(getOriginalFromHistory(state.history, state.selectedHistoryIndex))}
+                                        layoutData={layoutData}
+                                        isAnalyzingLayout={isAnalyzingLayout}
+                                        onFullscreen={() => setFullscreenImg(activeGeneratedImage)}
                                         zoom={imageZoom}
                                         onZoomChange={handleZoomChange}
                                     />
@@ -211,8 +232,8 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
                                     src={displayImage}
                                     alt="Source"
                                     className="w-full h-full border-0 rounded-none bg-stone-950/50"
-                                    layoutData={state.layoutData}
-                                    isAnalyzingLayout={state.isAnalyzingLayout}
+                                    layoutData={layoutData}
+                                    isAnalyzingLayout={isAnalyzingLayout}
                                     onFullscreen={() => setFullscreenImg(displayImage)}
                                     zoom={imageZoom}
                                     onZoomChange={handleZoomChange}

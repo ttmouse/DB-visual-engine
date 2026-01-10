@@ -49,11 +49,18 @@ export const HistoryThumbnail = memo(({
         }
       `}
     >
-      <img
-        src={imageUrl}
-        alt={`Generated ${index + 1}`}
-        className="w-full h-full object-cover transition-transform duration-200"
-      />
+
+      {imageUrl && imageUrl !== 'data:image/png;base64,' ? (
+        <img
+          src={imageUrl}
+          alt={`Generated ${index + 1}`}
+          className="w-full h-full object-cover transition-transform duration-200"
+        />
+      ) : (
+        <div className="w-full h-full bg-stone-900 flex items-center justify-center">
+          <Icons.Image size={24} className="text-stone-700" />
+        </div>
+      )}
 
       {/* Delete button - appears on hover */}
       {onDelete && (

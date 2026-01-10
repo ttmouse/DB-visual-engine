@@ -10,7 +10,7 @@ import { AppState, HistoryItem } from '../types';
 import { generateImageFromPrompt } from '../services/geminiService';
 import { generateThumbnail } from '../utils/thumbnailUtils';
 import { saveHistoryItem } from '../services/historyService';
-import { updateRecentCache } from '../services/recentCacheService';
+
 
 interface UseImageGenerationProps {
     state: AppState;
@@ -92,7 +92,7 @@ export const useImageGeneration = ({
                             referenceImages: state.referenceImages?.length ? [...state.referenceImages] : undefined
                         };
                         await saveHistoryItem(newItem);
-                        updateRecentCache(newItem); // Sync localStorage fast cache
+                        await saveHistoryItem(newItem);
                         successCount++;
 
                         // Update state: use thumbnail for generatedImages array (gallery)

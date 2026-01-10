@@ -28,22 +28,36 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   zoom = { scale: 1, panX: 0, panY: 0 },
   onZoomChange
 }) => {
+  if (!src) return null;
+
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (!onZoomChange || !containerRef.current) return;
+  // Fix for "Unable to preventDefault inside passive event listener invocation"
+  // We need { passive: false } to allow preventing default scroll behavior
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    e.preventDefault();
-    const rect = containerRef.current.getBoundingClientRect();
+    const onWheel = (e: WheelEvent) => {
+      if (!onZoomChange) return;
+      e.preventDefault();
 
-    // Mouse relative to container center
-    const mouseX = e.clientX - rect.left - rect.width / 2;
-    const mouseY = e.clientY - rect.top - rect.height / 2;
+      const rect = container.getBoundingClientRect();
+      // Mouse relative to container center
+      const mouseX = e.clientX - rect.left - rect.width / 2;
+      const mouseY = e.clientY - rect.top - rect.height / 2;
 
-    const newZoom = calculateNewZoom(zoom, mouseX, mouseY, e.deltaY);
-    onZoomChange(newZoom);
-  };
+      const newZoom = calculateNewZoom(zoom, mouseX, mouseY, e.deltaY);
+      onZoomChange(newZoom);
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', onWheel);
+    };
+  }, [zoom, onZoomChange]);
 
   const transformStyle = zoom.scale > 1
     ? {
@@ -56,7 +70,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
     <div
       ref={containerRef}
       className={`relative group overflow-hidden rounded-xl border border-stone-700 bg-stone-950 transition-all h-full w-full ${className}`}
-      onWheel={handleWheel}
     >
       <img
         ref={imgRef}

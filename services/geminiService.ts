@@ -867,16 +867,22 @@ export async function generateImageFromPrompt(
     let response;
 
     // Build generation config for official mode
+    // Build generationConfig for both Official and Custom modes
+    // Custom proxies often support official matching parameters too
     const generationConfig: any = {};
-    if (currentConfig.mode === 'official') {
-      // Official API supports aspectRatio parameter
+    if (currentConfig.mode === 'official' || currentConfig.mode === 'custom') {
+      // API supports aspectRatio parameter
+      // Add both camelCase and snake_case to be safe (Spray and Pray)
       generationConfig.aspectRatio = detectedRatio;
-      // Note: Official API uses imageSize parameter for resolution (1K or 2K)
-      // 4K is not directly supported, but 2K is the max
+      generationConfig.aspect_ratio = detectedRatio;
+
+      // Handle resolution (2K limit for Imagen 3)
       if (is4K) {
         generationConfig.imageSize = '2K';
       }
     }
+
+    console.log('[GeminiService] Final generationConfig:', JSON.stringify(generationConfig, null, 2));
 
     if (refImage) {
       const cleanRef = refImage.replace(/^data:image\/\w+;base64,/, "");
@@ -886,13 +892,25 @@ export async function generateImageFromPrompt(
           { inlineData: { mimeType, data: cleanRef } },
           promptContext
         ],
-        ...(Object.keys(generationConfig).length > 0 && { generationConfig })
+        ...(Object.keys(generationConfig).length > 0 && {
+          generationConfig: generationConfig,
+          config: {
+            generationConfig: generationConfig,
+            imageGenerationConfig: generationConfig
+          }
+        } as any)
       });
     } else {
       response = await client.models.generateContent({
         model: modelId,
         contents: promptContext,
-        ...(Object.keys(generationConfig).length > 0 && { generationConfig })
+        ...(Object.keys(generationConfig).length > 0 && {
+          generationConfig: generationConfig,
+          config: {
+            generationConfig: generationConfig,
+            imageGenerationConfig: generationConfig
+          }
+        } as any)
       });
     }
 

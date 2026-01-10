@@ -76,12 +76,44 @@ export const ImageDetailViewer: React.FC<ImageDetailViewerProps> = ({
     // 注意：这违反了 React hooks 规则，但为了性能优化是必要的
     // 替代方案：在父组件条件渲染
 
+    const [isConfirmOpen, setIsConfirmOpen] = React.useState(false);
+    const confirmButtonRef = React.useRef<HTMLButtonElement>(null);
+
+    // Focus confirm button when modal opens
+    useEffect(() => {
+        if (isConfirmOpen) {
+            // Short delay to ensure render
+            requestAnimationFrame(() => {
+                confirmButtonRef.current?.focus();
+            });
+        }
+    }, [isConfirmOpen]);
+
     // 键盘导航
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (!isOpen) return;
 
+        // If confirm modal is open, handle Enter/Escape specifically
+        if (isConfirmOpen) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                setIsConfirmOpen(false);
+                return;
+            }
+            // Enter is handled by button focus natural behavior, but we can enforce it
+            return;
+        }
+
         if (e.key === 'Escape') {
             onClose();
+            return;
+        }
+
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (onDelete) {
+                setIsConfirmOpen(true);
+            }
             return;
         }
 
@@ -92,13 +124,17 @@ export const ImageDetailViewer: React.FC<ImageDetailViewerProps> = ({
                 onNavigate(currentIndex + 1);
             }
         }
-    }, [isOpen, mode, onNavigate, images.length, currentIndex, onClose]);
+    }, [isOpen, mode, onNavigate, images.length, currentIndex, onClose, onDelete, isConfirmOpen]);
 
     useEffect(() => {
         if (!isOpen) return; // 关闭时不添加监听器
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleKeyDown, isOpen]);
+
+    const handleDeleteClick = () => {
+        setIsConfirmOpen(true);
+    };
 
     if (!isOpen) return null;
 
@@ -111,6 +147,40 @@ export const ImageDetailViewer: React.FC<ImageDetailViewerProps> = ({
             className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md animate-in fade-in duration-300"
             onClick={onClose}
         >
+            {/* Confirmation Modal */}
+            {isConfirmOpen && (
+                <div
+                    className="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={(e) => { e.stopPropagation(); setIsConfirmOpen(false); }}
+                >
+                    <div
+                        className="bg-stone-900 border border-stone-800 p-6 rounded-xl shadow-2xl max-w-sm w-full mx-4 transform scale-100 animate-in zoom-in-95 duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-bold text-stone-200 mb-2">确认删除?</h3>
+                        <p className="text-sm text-stone-500 mb-6">此操作无法撤销。该图片将从历史记录中永久移除。</p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setIsConfirmOpen(false)}
+                                className="px-4 py-2 rounded-lg bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200 transition-colors text-sm font-medium"
+                            >
+                                取消
+                            </button>
+                            <button
+                                ref={confirmButtonRef}
+                                onClick={() => {
+                                    if (onDelete) onDelete();
+                                    setIsConfirmOpen(false);
+                                }}
+                                className="px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors text-sm font-medium focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 focus:ring-offset-stone-900 outline-none"
+                            >
+                                确认删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 关闭按钮 */}
             <button
                 onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -215,7 +285,7 @@ export const ImageDetailViewer: React.FC<ImageDetailViewerProps> = ({
                                             )}
                                             {onDelete && (
                                                 <button
-                                                    onClick={onDelete}
+                                                    onClick={handleDeleteClick}
                                                     className="p-3 bg-stone-900/60 hover:bg-rose-900/80 rounded-xl text-stone-300 hover:text-rose-300 transition-all backdrop-blur-md"
                                                     title="删除"
                                                 >

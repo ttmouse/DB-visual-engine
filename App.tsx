@@ -19,12 +19,12 @@ import { useToast } from './hooks/useToast';
 import { StorageIndicator } from './components/StorageIndicator';
 import { Icons } from './components/Icons';
 import { streamAgentAnalysis, generateImageFromPrompt, streamConsistencyCheck, refinePromptWithFeedback, detectLayout, translatePrompt, executeSmartAnalysis, configureClient, configureModels, getModeDefaultModels } from './services/geminiService';
-import { saveHistoryItem, getHistory, deleteHistoryItemById } from './services/historyService';
+import { saveHistoryItem, getHistory, deleteHistoryItemById, getHistoryItemById } from './services/historyService';
 import { detectSkillIntent, createUserMessage, createAssistantMessage, createSkillResultMessage, executeQualityCheck, executeRefineSkill, executeReverseSkill } from './services/chatService';
 import { promptManager, PromptVersion } from './services/promptManager';
 import { saveCurrentTask, loadCurrentTask, clearCurrentTask } from './services/cacheService';
-import { saveViewState } from './services/recentCacheService';
 import { runLazyMigration } from './services/migrationService';
+import { saveSnapshot, loadSnapshot, clearSnapshot } from './services/snapshotService';
 import { usePromptHistory } from './hooks/usePromptHistory';
 import { useSoundEffects } from './hooks/useSoundEffects';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -73,7 +73,11 @@ const App: React.FC = () => {
   const [isPending, startTransition] = useTransition(); // 用于非阻塞状态更新
   const [showLanding, setShowLanding] = useState(false);
 
-  const [state, setState] = useState<AppState>(INITIAL_STATE);
+  const [state, setState] = useState<AppState>(() => {
+    // [SNAPSHOT] Instant load last view state (0ms)
+    const snap = loadSnapshot();
+    return snap ? { ...INITIAL_STATE, ...snap } : INITIAL_STATE;
+  });
   const [displayImage, setDisplayImage] = useState<string | null>(null);
   const [uploaderKey, setUploaderKey] = useState(0); // Key to force ImageUploader remount
   const { toasts, showToast, removeToast } = useToast();
@@ -168,6 +172,8 @@ const App: React.FC = () => {
   const [is4K, setIs4K] = useState(false); // 是否启用 4K 画质
   const mainRef = useRef<HTMLElement>(null);
   const historyRef = useRef(state.history); // 用于 useEffect 回调中访问最新 history
+  const isKeyboardNav = useRef(false); // Track navigation source for scroll behavior
+  const scrollContainerRef = useRef<HTMLDivElement>(null); // For custom history scrolling
 
   // Resizable left panel
   const {
@@ -335,45 +341,68 @@ const App: React.FC = () => {
     state.selectedHistoryIndex
   ]);
 
+  // [SNAPSHOT] Auto-save "Last Active View" to fast storage
+  useEffect(() => {
+    // Only save if content exists
+    if (state.image || state.generatedImage || state.editablePrompt) {
+      const timeout = setTimeout(() => {
+        saveSnapshot(state);
+      }, 1000); // 1s debounce
+      return () => clearTimeout(timeout);
+    }
+  }, [state.image, state.generatedImage, state.editablePrompt, state.detectedAspectRatio, state.selectedHistoryIndex]);
+
   // Helper to load history item
   // Helper to load history item
-  const loadHistoryItem = useCallback((index: number) => {
+  // Helper to load history item
+  const loadHistoryItem = useCallback(async (index: number) => {
     // 1. Check if index is valid
     if (index < 0 || index >= historyRef.current.length) return;
 
     const historyItem = historyRef.current[index];
     if (!historyItem) return;
 
-    // 2. Set selected index & Display Image (High Priority UI Update)
-    // 优先更新 UI，让用户感觉到操作立即响应
+    // 2. Set selected index immediately (Optimistic UI)
     setSelectedHistoryIndex(index);
-    // Save to localStorage: position + current item thumbnail for "recently viewed" cache
-    saveViewState(index, {
-      id: historyItem.id,
-      thumbnail: historyItem.generatedImageThumb,
-      prompt: historyItem.prompt,
-      aspectRatio: historyItem.detectedAspectRatio
-    });
-    // 在对比模式下，不更新 displayImage（左侧图），实现“锁定左侧，右侧切换”的扫描体验
-    // 用户反馈：左键点击应总是还原该记录的“原图 vs 生成图”对比
-    // Remove "Lock Left" logic to restore standard behavior
-    if (historyItem.originalImage) {
-      setDisplayImage(getImageSrc(historyItem.originalImage, historyItem.mimeType));
+
+    // 3. Determine if we need to fetch full data (Lightweight Mode Check)
+    // If originalImage is missing/empty but we have an ID, we likely need to fetch
+    let fullItem = historyItem;
+    // We assume if originalImage is missing, it's a lightweight item. 
+    // Note: Some legacy items might genuinely not have an originalImage if they were text-only, 
+    // but usually they have a base64 string.
+    if (!historyItem.originalImage && historyItem.id) {
+      try {
+
+        const fetched = await getHistoryItemById(historyItem.id);
+        if (fetched) {
+          fullItem = fetched;
+        }
+      } catch (e) {
+        console.error("Failed to fetch full history item", e);
+        showToast(t('toast.loadFailed'), 'error');
+        return;
+      }
+    }
+
+    // 4. Update UI with (potentially fetched) full data
+    if (fullItem.originalImage) {
+      setDisplayImage(getImageSrc(fullItem.originalImage, fullItem.mimeType));
     } else {
       setDisplayImage(null);
     }
 
-    // 3. Restore state (direct update - avoiding startTransition to prevent concurrent mode conflicts)
+    // 5. Restore state
     setState(prev => ({
       ...prev,
-      editablePrompt: historyItem.prompt,
-      promptCache: { ...prev.promptCache, CN: historyItem.prompt },
-      image: historyItem.originalImage,
-      mimeType: historyItem.mimeType || 'image/png',
-      detectedAspectRatio: historyItem.detectedAspectRatio || '1:1',
-      generatedImage: historyItem.generatedImage
+      editablePrompt: fullItem.prompt,
+      promptCache: { ...prev.promptCache, CN: fullItem.prompt },
+      image: fullItem.originalImage, // This will be the full base64
+      mimeType: fullItem.mimeType || 'image/png',
+      detectedAspectRatio: fullItem.detectedAspectRatio || '1:1',
+      generatedImage: fullItem.generatedImage // This will be the full base64
     }));
-  }, [isComparisonMode]); // 依赖 isComparisonMode，其他依赖使用 ref 或 setter 消除
+  }, [isComparisonMode, t, showToast]); // Added t, showToast dependency
 
   // Keyboard Shortcuts for History and Fullscreen
   // Keyboard Shortcuts for History and Fullscreen
@@ -463,6 +492,7 @@ const App: React.FC = () => {
       currentGroupId: crypto.randomUUID()
     }));
     clearCurrentTask(); // Clear cache when starting new task
+    clearSnapshot(); // Clear snapshot for fresh start
   };
 
   const handleAnalyzeLayout = async () => {
@@ -587,57 +617,98 @@ const App: React.FC = () => {
 
   // Handler to delete a history item by index
   const handleDeleteHistoryItem = useCallback(async (index: number) => {
-    const historyItem = historyRef.current[index];
+    // 1. Get the item to delete
+    const itemToDelete = state.history[index];
+    if (!itemToDelete) return;
 
-    // Delete from IndexedDB if it exists (non-blocking)
-    if (historyItem?.id) {
-      deleteHistoryItemById(historyItem.id).catch(e =>
-        console.error('Failed to delete from DB:', e)
-      );
+    // 2. EDGE CASE: Temporary Snapshot Item
+    if (itemToDelete.id === 'snapshot-temp') {
+      clearSnapshot();
+      setState(prev => ({ ...prev, history: [], generatedImages: [], generatedImage: null, image: null, selectedHistoryIndex: 0 }));
+      return;
     }
 
-    // Update state immediately (not using startTransition to avoid concurrent mode conflicts)
-    setState(prev => {
-      const newGeneratedImages = [...prev.generatedImages];
-      const newHistory = [...prev.history];
+    // 3. Fire-and-forget DB deletion
+    if (itemToDelete.id) {
+      deleteHistoryItemById(itemToDelete.id).catch(e => console.error('Failed to delete history item:', e));
+    }
 
-      newGeneratedImages.splice(index, 1);
-      newHistory.splice(index, 1);
+    // 4. Calculate New State & Fetch Next Data
+    const prevHistory = state.history;
+    const newHistory = [...prevHistory];
+    newHistory.splice(index, 1);
 
-      // Adjust selected index if necessary
-      let newSelectedIndex = prev.selectedHistoryIndex;
-      if (index <= newSelectedIndex) {
-        newSelectedIndex = Math.max(0, newSelectedIndex - 1);
+    // Determine new index
+    let newIndex = state.selectedHistoryIndex;
+    if (index <= state.selectedHistoryIndex) {
+      if (newHistory.length === 0) newIndex = 0;
+      else if (state.selectedHistoryIndex === 0) newIndex = 0;
+      else newIndex = state.selectedHistoryIndex - 1;
+    }
+    if (newIndex >= newHistory.length) newIndex = Math.max(0, newHistory.length - 1);
+
+    // 5. Fetch Full Data for the *New* Selected Item (if safe)
+    let nextFullItem: HistoryItem | null | undefined = newHistory[newIndex];
+    if (nextFullItem && (!nextFullItem.generatedImage) && nextFullItem.id) {
+      try {
+        // Show ephemeral loading state if needed, or just wait
+        const fetched = await getHistoryItemById(nextFullItem.id);
+        if (fetched) nextFullItem = fetched;
+      } catch (e) {
+        console.warn('Failed to fetch next item after delete', e);
       }
-      if (newGeneratedImages.length === 0) {
-        newSelectedIndex = 0;
+    }
+
+    // 6. Atomic State Update
+    setState(prev => {
+      // Re-clone to be safe against intervening updates (though usually fine in callback)
+      const currentHistory = [...prev.history];
+      const currentImages = [...prev.generatedImages];
+
+      // Double check bounds in case state changed
+      if (index < currentHistory.length) {
+        currentHistory.splice(index, 1);
+        currentImages.splice(index, 1);
       }
 
       return {
         ...prev,
-        generatedImages: newGeneratedImages,
-        history: newHistory,
-        selectedHistoryIndex: newSelectedIndex,
-        image: newHistory[newSelectedIndex]?.originalImage || null,
-        generatedImage: newGeneratedImages[newSelectedIndex] || null
+        history: currentHistory,
+        generatedImages: currentImages,
+        selectedHistoryIndex: newIndex,
+        // Use the fetched full item
+        image: nextFullItem?.originalImage || null,
+        generatedImage: nextFullItem?.generatedImage || null,
+        mimeType: nextFullItem?.mimeType || 'image/png'
       };
     });
 
     showToast(t('toast.deleted'), 'success');
-  }, [showToast, t]);
+  }, [state.history, state.selectedHistoryIndex, showToast, t]);
 
-  const handleHistoryContextMenu = useCallback((e: React.MouseEvent, index: number) => {
+  const handleHistoryContextMenu = useCallback(async (e: React.MouseEvent, index: number) => {
     e.preventDefault();
-    const item = historyRef.current[index];
-    // User expects the clicked image (Thumbnail/Result) to be the comparison source
-    // So prioritize Generated Image, fallback to Original Image
-    const targetImage = item?.generatedImage || item?.originalImage;
+
+    let item = state.history[index];
+    if (!item) return;
+
+    // Lightweight check: If image is missing but ID exists, fetch full item
+    if ((!item.generatedImage && !item.originalImage) && item.id) {
+      showToast(t('toast.loading'), 'info', 500);
+      const fetched = await getHistoryItemById(item.id);
+      if (fetched) {
+        item = fetched;
+      }
+    }
+
+    const targetImage = item.generatedImage || item.originalImage;
 
     if (targetImage) {
-      setDisplayImage(getImageSrc(targetImage, item?.mimeType || 'image/png'));
+      setDisplayImage(getImageSrc(targetImage, item.mimeType || 'image/png'));
       setIsComparisonMode(true);
+      showToast(t('toast.addedToComparison'), 'success');
     }
-  }, []);
+  }, [state.history, t, showToast]);
 
   // Handler to download original image
   const handleDownloadHD = async (index: number) => {
@@ -879,6 +950,45 @@ const App: React.FC = () => {
 
   if (showLanding) return <LandingPage onEnterApp={() => setShowLanding(false)} hasKey={hasKey} onSelectKey={handleSelectKey} />;
 
+  // Scroll selected history item into view
+  // Scroll selected history item into view with Page Flip logic
+  useEffect(() => {
+    if (state.generatedImages.length > 0) {
+      const el = document.getElementById(`history-item-${state.selectedHistoryIndex}`);
+      const container = scrollContainerRef.current;
+
+      if (el && container) {
+        const itemRect = el.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        // Define margin of error (e.g. 10px) to consider "at edge"
+        const isOffScreenRight = itemRect.right > containerRect.right + 2;
+        const isOffScreenLeft = itemRect.left < containerRect.left - 2;
+
+        // Check distance to determine if it's a "Deep Jump" (e.g. restore from cache) or just simple navigation
+        const distRight = itemRect.right - containerRect.right;
+        const distLeft = containerRect.left - itemRect.left;
+        const width = container.clientWidth;
+
+        // If very far off-screen (> 1 page), just jump to it (Center it to be safe)
+        if (distRight > width || distLeft > width) {
+          el.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+        }
+        // Otherwise, use Page Flip logic for smooth browsing
+        else if (distRight > 2) {
+          // Scroll right by a full page
+          container.scrollBy({ left: width * 0.8, behavior: 'smooth' });
+        } else if (distLeft > 2) {
+          // Scroll left by a full page
+          container.scrollBy({ left: -width * 0.8, behavior: 'smooth' });
+        } else {
+          // Standard visibility check for partially visible items
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        }
+      }
+    }
+  }, [state.selectedHistoryIndex, state.generatedImages.length]);
+
   return (
     <div className="min-h-screen bg-black text-stone-200 font-sans selection:bg-stone-700 overflow-hidden">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
@@ -1030,7 +1140,13 @@ const App: React.FC = () => {
           width={leftPanelWidth}
           isDraggingDivider={isDraggingDivider}
           onResizeStart={() => setIsDraggingDivider(true)}
-          state={state}
+          generatedImages={state.generatedImages || []} // FIX: Ensure array
+          selectedHistoryIndex={state.selectedHistoryIndex}
+          history={state.history || []} // FIX: Ensure array
+          currentGeneratedImage={state.generatedImage} // PASS FULL RES IMAGE HERE
+          layoutData={state.layoutData}
+          isAnalyzingLayout={state.isAnalyzingLayout}
+          isProcessing={state.isProcessing}
           displayImage={displayImage}
           isComparisonMode={isComparisonMode}
           setIsComparisonMode={setIsComparisonMode}
@@ -1117,9 +1233,9 @@ const App: React.FC = () => {
             <span className="text-xs font-medium">No history records</span>
           </div>
         ) : (
-          <div className="flex-1 flex items-center gap-1 overflow-x-auto overflow-y-hidden w-full h-full py-2 custom-scrollbar px-6">
+          <div ref={scrollContainerRef} className="flex-1 flex items-center gap-1 overflow-x-auto overflow-y-hidden w-full h-full py-2 custom-scrollbar px-6">
             {state.generatedImages.map((img, index) => (
-              <div key={index} className="flex-shrink-0 w-20 h-20 relative">
+              <div key={index} id={`history-item-${index}`} className="flex-shrink-0 w-20 h-20 relative">
                 <HistoryThumbnail
                   imageUrl={`data:image/png;base64,${img}`}
                   index={index}
