@@ -133,7 +133,30 @@ export type I18nKey =
   | 'comparison.generated'
   | 'toast.loading'
   | 'toast.loadFailed'
-  | 'toast.addedToComparison';
+  | 'toast.addedToComparison'
+  | 'gallery.openHoverTab'
+  | 'history.noRecords'
+  | 'studio.reverse.quickPrompt'
+  | 'studio.reverse.fullPrompt'
+  | 'studio.reverse.fullAuto'
+  | 'studio.reverse.quickAuto'
+  | 'studio.translate.tooltip'
+  | 'studio.placeholder.analyzing'
+  | 'studio.mention.tooltip'
+  | 'studio.mention.tooltipDisabled'
+  | 'studio.version.label'
+  | 'studio.version.default'
+  | 'studio.version.title'
+  | 'gallery.tooltip.edit'
+  | 'gallery.tooltip.timeline'
+  | 'gallery.label.timeline'
+  | 'gallery.tooltip.aggregation'
+  | 'gallery.label.aggregation'
+  | 'gallery.search.placeholder'
+  | 'gallery.tooltip.allImages'
+  | 'gallery.empty'
+  | 'gallery.loading'
+  | 'gallery.tooltip.close';
 
 export const translations: Record<Language, Record<I18nKey, string>> = {
   CN: {
@@ -269,7 +292,30 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'comparison.generated': '生成',
     'toast.loading': '正在加载...',
     'toast.loadFailed': '加载失败',
-    'toast.addedToComparison': '已添加到对比模式'
+    'toast.addedToComparison': '已添加到对比模式',
+    'gallery.openHoverTab': '打开相册',
+    'history.noRecords': '暂无历史记录',
+    'studio.reverse.quickPrompt': '快速逆向-提示词',
+    'studio.reverse.fullPrompt': '完整逆向-提示词',
+    'studio.reverse.fullAuto': '完整逆向',
+    'studio.reverse.quickAuto': '快速逆向',
+    'studio.translate.tooltip': '翻译提示词',
+    'studio.placeholder.analyzing': 'AI 正在分析画面...',
+    'studio.mention.tooltip': '引用图片',
+    'studio.mention.tooltipDisabled': '请先上传或生成图片',
+    'studio.version.label': '版本',
+    'studio.version.default': '默认',
+    'studio.version.title': 'PROMPT VERSIONS',
+    'gallery.tooltip.edit': '编辑此图',
+    'gallery.tooltip.timeline': '时间流视图',
+    'gallery.label.timeline': '时间流',
+    'gallery.tooltip.aggregation': '原图聚合视图',
+    'gallery.label.aggregation': '聚合',
+    'gallery.search.placeholder': '搜索提示词...',
+    'gallery.tooltip.allImages': '全部图片',
+    'gallery.empty': '暂无图片',
+    'gallery.loading': '加载中...',
+    'gallery.tooltip.close': '关闭大图',
   },
 
   EN: {
@@ -405,7 +451,30 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'comparison.generated': 'GENERATED',
     'toast.loading': 'Loading...',
     'toast.loadFailed': 'Load Failed',
-    'toast.addedToComparison': 'Added to Comparison'
+    'toast.addedToComparison': 'Added to Comparison',
+    'gallery.openHoverTab': 'Open Gallery',
+    'history.noRecords': 'No history records',
+    'studio.reverse.quickPrompt': 'Quick Reverse - Prompt',
+    'studio.reverse.fullPrompt': 'Full Reverse - Prompt',
+    'studio.reverse.fullAuto': 'Full Reverse',
+    'studio.reverse.quickAuto': 'Quick Reverse',
+    'studio.translate.tooltip': 'Translate Prompt',
+    'studio.placeholder.analyzing': 'AI is analyzing the scene...',
+    'studio.mention.tooltip': 'Mention Image',
+    'studio.mention.tooltipDisabled': 'Upload or generate image first',
+    'studio.version.label': 'Version',
+    'studio.version.default': 'Default',
+    'studio.version.title': 'PROMPT VERSIONS',
+    'gallery.tooltip.edit': 'Edit Image',
+    'gallery.tooltip.timeline': 'Timeline View',
+    'gallery.label.timeline': 'Timeline',
+    'gallery.tooltip.aggregation': 'Original Aggregation View',
+    'gallery.label.aggregation': 'Aggregation',
+    'gallery.search.placeholder': 'Search prompts...',
+    'gallery.tooltip.allImages': 'All Images',
+    'gallery.empty': 'No Images',
+    'gallery.loading': 'Loading...',
+    'gallery.tooltip.close': 'Close Viewer',
   }
 };
 

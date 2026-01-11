@@ -207,11 +207,11 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
     // Helper to get button label
     const getReverseButtonLabel = () => {
         switch (selectedReverseMode) {
-            case 'quick-prompt': return '快速逆向-提示词';
-            case 'full-prompt': return '完整逆向-提示词';
-            case 'full-auto': return '完整逆向';
-            case 'quick-auto': return '快速逆向';
-            default: return '快速逆向';
+            case 'quick-prompt': return t('studio.reverse.quickPrompt');
+            case 'full-prompt': return t('studio.reverse.fullPrompt');
+            case 'full-auto': return t('studio.reverse.fullAuto');
+            case 'quick-auto': return t('studio.reverse.quickAuto');
+            default: return t('studio.reverse.quickAuto');
         }
     };
 
@@ -285,7 +285,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                         <button
                             onClick={(e) => { e.stopPropagation(); setIsTranslateOpen(!isTranslateOpen); }}
                             className="p-1.5 bg-stone-800/80 hover:bg-stone-700 text-stone-400 hover:text-stone-200 rounded-lg backdrop-blur-sm border border-stone-700/50 transition-colors"
-                            title="翻译提示词"
+                            title={t('studio.translate.tooltip')}
                         >
                             <Icons.Languages size={14} />
                         </button>
@@ -331,7 +331,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                     value={showProgressView && pipelineProgress?.steps?.[0]?.streamingContent ? pipelineProgress.steps[0].streamingContent : state.editablePrompt}
                     readOnly={showProgressView}
                     disabled={state.isProcessing}
-                    placeholder={showProgressView ? "AI 正在分析画面..." : "输入提示词，或上传图片逆向生成..."}
+                    placeholder={showProgressView ? t('studio.placeholder.analyzing') : t('studio.placeholder')}
                     onChange={(e) => setState(prev => ({
                         ...prev,
                         editablePrompt: e.target.value,
@@ -406,7 +406,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                 ...prev,
                                 referenceImages: [...prev.referenceImages, ...processedImages]
                             }));
-                            showToast(`已添加 ${processedImages.length} 张参考图`, 'success');
+                            showToast(t('toast.referenceAdded', { count: processedImages.length }), 'success');
                         });
                     }}
                     className="flex-1 w-full bg-stone-950 rounded-xl border border-stone-800 p-4 text-[12px] font-mono leading-relaxed focus:ring-2 focus:ring-stone-600 outline-none resize-none overflow-y-auto custom-scrollbar text-stone-200 placeholder:text-stone-600 relative z-20"
@@ -447,7 +447,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                     ? 'bg-amber-900/40 text-amber-400 border-amber-500/30'
                                     : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-amber-400 border-transparent'
                                 }`}
-                            title={state.image || state.generatedImage ? "引用图片" : "请先上传或生成图片"}
+                            title={state.image || state.generatedImage ? t('studio.mention.tooltip') : t('studio.mention.tooltipDisabled')}
                         >
                             @
                         </button>
@@ -503,7 +503,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                     setState(prev => ({ ...prev, isVersionDropdownOpen: !prev.isVersionDropdownOpen }));
                                 }}
                                 className="flex items-center gap-1 p-2 bg-stone-800 hover:bg-stone-700 rounded-xl text-stone-300 transition-colors border border-stone-700 min-w-[3rem] justify-center"
-                                title={`版本: ${promptManager.getVersions(AgentRole.SYNTHESIZER).find(v => v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER))?.name || '默认'}`}
+                                title={`${t('studio.version.label')}: ${promptManager.getVersions(AgentRole.SYNTHESIZER).find(v => v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER))?.name || t('studio.version.default')}`}
                             >
                                 <span className="text-xs font-bold text-stone-400">
                                     P{promptManager.getVersions(AgentRole.SYNTHESIZER).findIndex(v => v.id === promptManager.getActiveVersionId(AgentRole.SYNTHESIZER)) + 1}
@@ -523,7 +523,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                         onClick={e => e.stopPropagation()}
                                     >
                                         <div className="px-3 py-2 border-b border-stone-700/50">
-                                            <div className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Prompt Versions</div>
+                                            <div className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">{t('studio.version.title')}</div>
                                         </div>
                                         {promptManager.getVersions(AgentRole.SYNTHESIZER).map(v => (
                                             <div
@@ -577,7 +577,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                             className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedReverseMode === 'quick-prompt' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
                                         >
                                             {selectedReverseMode === 'quick-prompt' && <Icons.Check size={12} />}
-                                            <span className={selectedReverseMode !== 'quick-prompt' ? 'pl-5' : ''}>快速逆向-提示词</span>
+                                            <span className={selectedReverseMode !== 'quick-prompt' ? 'pl-5' : ''}>{t('studio.reverse.quickPrompt')}</span>
                                         </div>
                                         {/* Option 2: Full - Prompt Only */}
                                         <div
@@ -585,7 +585,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                             className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedReverseMode === 'full-prompt' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
                                         >
                                             {selectedReverseMode === 'full-prompt' && <Icons.Check size={12} />}
-                                            <span className={selectedReverseMode !== 'full-prompt' ? 'pl-5' : ''}>完整逆向-提示词</span>
+                                            <span className={selectedReverseMode !== 'full-prompt' ? 'pl-5' : ''}>{t('studio.reverse.fullPrompt')}</span>
                                         </div>
                                         <div className="h-px bg-stone-600 my-1 mx-2 opacity-30" />
                                         {/* Option 3: Full - Auto */}
@@ -594,7 +594,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                             className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedReverseMode === 'full-auto' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
                                         >
                                             {selectedReverseMode === 'full-auto' && <Icons.Check size={12} />}
-                                            <span className={selectedReverseMode !== 'full-auto' ? 'pl-5' : ''}>完整逆向</span>
+                                            <span className={selectedReverseMode !== 'full-auto' ? 'pl-5' : ''}>{t('studio.reverse.fullAuto')}</span>
                                         </div>
                                         {/* Option 4: Quick - Auto (Default) */}
                                         <div
@@ -602,7 +602,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                             className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${selectedReverseMode === 'quick-auto' ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
                                         >
                                             {selectedReverseMode === 'quick-auto' && <Icons.Check size={12} />}
-                                            <span className={selectedReverseMode !== 'quick-auto' ? 'pl-5' : ''}>快速逆向</span>
+                                            <span className={selectedReverseMode !== 'quick-auto' ? 'pl-5' : ''}>{t('studio.reverse.quickAuto')}</span>
                                         </div>
                                     </div>
                                 </>
@@ -640,7 +640,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                                 className={`px-3 py-2 hover:bg-stone-700 cursor-pointer text-xs transition-colors flex items-center gap-2 ${num === generateCount ? 'bg-stone-700 text-orange-400' : 'text-stone-300'}`}
                                             >
                                                 {num === generateCount && <Icons.Check size={12} />}
-                                                <span className={num !== generateCount ? 'pl-5' : ''}>生成 {num} 张</span>
+                                                <span className={num !== generateCount ? 'pl-5' : ''}>{t('studio.generate.multiple', { count: num })}</span>
                                             </div>
                                         ))}
                                     </div>

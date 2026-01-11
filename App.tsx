@@ -1306,7 +1306,7 @@ const App: React.FC = () => {
         <div
           onClick={() => setIsGalleryOpen(true)}
           className="absolute left-1/2 -translate-x-1/2 top-0 h-6 w-32 bg-stone-950/95 border-x border-t border-stone-800 rounded-t-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ease-out opacity-0 translate-y-0 group-hover/historybar:-translate-y-full group-hover/historybar:opacity-100 z-[-1]"
-          title="打开相册 (Open Gallery)"
+          title={t('gallery.openHoverTab')}
         >
           <Icons.ChevronUp size={16} className="text-stone-500 animate-pulse" />
         </div>
@@ -1314,7 +1314,7 @@ const App: React.FC = () => {
         {state.generatedImages.length === 0 ? (
           <div className="w-full flex items-center justify-center text-stone-600 gap-2">
             <Icons.Image size={24} strokeWidth={1.5} />
-            <span className="text-xs font-medium">No history records</span>
+            <span className="text-xs font-medium">{t('history.noRecords')}</span>
           </div>
         ) : (
           <div ref={scrollContainerRef} className="flex-1 flex items-center gap-1 overflow-x-auto overflow-y-hidden w-full h-full py-2 custom-scrollbar px-6">

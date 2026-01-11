@@ -679,7 +679,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                                     <button
                                         onClick={() => { onAddToComparison(globalIndex); onClose(); }}
                                         className="p-3 bg-stone-900/60 hover:bg-orange-900/80 rounded-xl text-stone-300 hover:text-orange-300 transition-all backdrop-blur-md"
-                                        title="添加到对比模式"
+                                        title={t('gallery.addToComparison')}
                                     >
                                         <Icons.Columns size={20} />
                                     </button>
@@ -688,7 +688,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                                     <button
                                         onClick={() => onDownload(globalIndex)}
                                         className="p-3 bg-stone-900/60 hover:bg-stone-800/80 rounded-xl text-stone-300 hover:text-white transition-all backdrop-blur-md"
-                                        title="下载"
+                                        title={t('common.download')}
                                     >
                                         <Icons.Download size={20} />
                                     </button>
@@ -706,7 +706,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                                             }
                                         }}
                                         className="p-3 bg-stone-900/60 hover:bg-rose-900/80 rounded-xl text-stone-300 hover:text-rose-300 transition-all backdrop-blur-md"
-                                        title="删除"
+                                        title={t('common.delete')}
                                     >
                                         <Icons.Trash2 size={20} />
                                     </button>
@@ -714,7 +714,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                                 <button
                                     onClick={() => setSelectedIndex(null)}
                                     className="p-3 bg-stone-900/60 hover:bg-stone-800/80 rounded-xl text-stone-300 hover:text-white transition-all backdrop-blur-md"
-                                    title="关闭大图"
+                                    title={t('gallery.tooltip.close')}
                                 >
                                     <Icons.X size={20} />
                                 </button>
@@ -757,7 +757,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                                     className="w-full py-4 bg-stone-100 hover:bg-white text-black rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] active:scale-[0.98]"
                                 >
                                     <Icons.Edit2 size={18} />
-                                    <span>编辑此图</span>
+                                    <span>{t('gallery.tooltip.edit')}</span>
                                 </button>
                             )}
                         </div>
@@ -816,7 +816,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="搜索提示词..."
+                            placeholder={t('gallery.search.placeholder')}
                             className="w-48 pl-8 pr-3 py-1.5 bg-stone-900 border border-stone-800 rounded-lg text-xs text-stone-200 placeholder:text-stone-600 focus:outline-none focus:border-amber-500/50 transition-colors"
                         />
                         {searchQuery && (
@@ -847,7 +847,7 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                         <button
                             onClick={() => setSelectedOriginalId(null)}
                             className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-1.5 transition-all mb-4 shrink-0 border-2 ${selectedOriginalId === null ? 'bg-stone-800 text-white border-amber-500 ring-4 ring-amber-500/10' : 'bg-transparent text-stone-500 hover:bg-stone-900 hover:text-stone-300 border-dashed border-stone-800 hover:border-stone-700'}`}
-                            title="全部图片"
+                            title={t('gallery.tooltip.allImages')}
                         >
                             <Icons.LayoutGrid size={24} />
                             <span className="text-[10px] font-bold">ALL</span>
@@ -885,12 +885,12 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                     {visibleImages.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-stone-600">
                             <Icons.Image size={48} className="mb-4 opacity-20" />
-                            <p className="text-sm font-light">暂无图片</p>
+                            <p className="text-sm font-light">{t('gallery.empty')}</p>
                         </div>
                     ) : imageDimensions.size === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-stone-600">
                             <Icons.RefreshCw size={24} className="mb-4 animate-spin opacity-50" />
-                            <p className="text-sm font-light">加载中...</p>
+                            <p className="text-sm font-light">{t('gallery.loading')}</p>
                         </div>
                     ) : (
                         <div className="flex flex-col" style={{ gap: `${GAP}px` }}>
