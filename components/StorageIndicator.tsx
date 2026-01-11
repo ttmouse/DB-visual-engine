@@ -15,75 +15,72 @@ interface StorageStats {
     percent: number;
 }
 
+const INITIAL_STATS: StorageStats = {
+    itemCount: 0,
+    totalBytes: 0,
+    quotaBytes: null,
+    percent: 0
+};
+
+/** Formats bytes into human-readable string (B, KB, MB, GB) */
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+/** Estimates storage usage from history items */
+function estimateHistorySize(history: Array<{ originalImage?: string; generatedImage?: string; generatedImageThumb?: string; prompt?: string }>): number {
+    let totalBytes = 0;
+    for (const item of history) {
+        if (item.originalImage) totalBytes += item.originalImage.length;
+        if (item.generatedImage) totalBytes += item.generatedImage.length;
+        if (item.generatedImageThumb) totalBytes += item.generatedImageThumb.length;
+        if (item.prompt) totalBytes += item.prompt.length * 2;
+    }
+    return totalBytes;
+}
+
 export const StorageIndicator: React.FC = () => {
-    const [stats, setStats] = useState<StorageStats>({
-        itemCount: 0,
-        totalBytes: 0,
-        quotaBytes: null,
-        percent: 0
-    });
+    const [stats, setStats] = useState<StorageStats>(INITIAL_STATS);
     const [isHovered, setIsHovered] = useState(false);
 
-    const calculateUsage = async () => {
-        try {
-            // Get history items and estimate their size
-            const history = await getHistory();
-
-            let totalBytes = 0;
-            for (const item of history) {
-                // Estimate size: base64 string length ≈ bytes
-                if (item.originalImage) totalBytes += item.originalImage.length;
-                if (item.generatedImage) totalBytes += item.generatedImage.length;
-                if (item.generatedImageThumb) totalBytes += item.generatedImageThumb.length;
-                if (item.prompt) totalBytes += item.prompt.length * 2;
-            }
-
-            // Try to get quota using Storage API
-            let quotaBytes: number | null = null;
-            let percent = 0;
-
-            if ('storage' in navigator && 'estimate' in navigator.storage) {
-                const estimate = await navigator.storage.estimate();
-                if (estimate.quota) {
-                    quotaBytes = estimate.quota;
-                    percent = estimate.usage ? (estimate.usage / estimate.quota) * 100 : 0;
-                }
-                // Use actual usage from Storage API if available (more accurate)
-                if (estimate.usage) {
-                    totalBytes = estimate.usage;
-                }
-            }
-
-            setStats({
-                itemCount: history.length,
-                totalBytes,
-                quotaBytes,
-                percent: Math.min(100, percent)
-            });
-        } catch (e) {
-            console.warn('Failed to calculate storage usage:', e);
-        }
-    };
-
     useEffect(() => {
+        const calculateUsage = async () => {
+            try {
+                const history = await getHistory();
+                let totalBytes = estimateHistorySize(history);
+                let quotaBytes: number | null = null;
+                let percent = 0;
+
+                // Use Storage API for more accurate data if available
+                if ('storage' in navigator && 'estimate' in navigator.storage) {
+                    const estimate = await navigator.storage.estimate();
+                    if (estimate.quota) {
+                        quotaBytes = estimate.quota;
+                        percent = estimate.usage ? (estimate.usage / estimate.quota) * 100 : 0;
+                    }
+                    if (estimate.usage) {
+                        totalBytes = estimate.usage;
+                    }
+                }
+
+                setStats({
+                    itemCount: history.length,
+                    totalBytes,
+                    quotaBytes,
+                    percent: Math.min(100, percent)
+                });
+            } catch (e) {
+                console.warn('Failed to calculate storage usage:', e);
+            }
+        };
+
         calculateUsage();
-        // Recalculate every 5 seconds
         const interval = setInterval(calculateUsage, 5000);
         return () => clearInterval(interval);
     }, []);
-
-    const formatBytes = (bytes: number): string => {
-        if (bytes < 1024) return `${bytes} B`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-        if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-        return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
-    };
-
-    const getColor = (p: number) => {
-        if (p > 90) return 'bg-red-500';
-        if (p > 70) return 'bg-orange-500';
-        return 'bg-emerald-500';
-    };
 
     return (
         <div
