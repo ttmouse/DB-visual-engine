@@ -163,6 +163,13 @@ export async function getHistoryItemById(id: string): Promise<HistoryItem | null
   }
 }
 
+/** Helper to get original image URL from history item */
+export function getOriginalFromHistory(history: HistoryItem[], index: number): string {
+  if (!history || index < 0 || index >= history.length) return '';
+  const item = history[index];
+  return item.originalImage || '';
+}
+
 /** Clears legacy localStorage data */
 export function clearLegacyStorage(): void {
   try {

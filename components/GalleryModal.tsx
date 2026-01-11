@@ -8,6 +8,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Icons } from './Icons';
 import { HistoryItem } from '../types';
+import { getOriginalFromHistory } from '../services/historyService';
+import { SearchInputWithHistory } from './SearchInputWithHistory';
 import { useI18n } from '../hooks/useI18n';
 import { ImageDetailViewer } from './ImageDetailViewer';
 import { getHistoryItemById } from '../services/historyService';
@@ -25,6 +27,8 @@ interface GalleryModalProps {
     onEdit?: (index: number) => void;
     onDelete?: (index: number) => void;
     onAddToComparison?: (index: number) => void;
+    searchQuery: string;
+    onSearchChange: (query: string) => void;
 }
 
 interface ImageDimensions {
@@ -50,12 +54,14 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
     onDownload,
     onEdit,
     onDelete,
-    onAddToComparison
+    onAddToComparison,
+    searchQuery,
+    onSearchChange
 }) => {
     const { t } = useI18n();
     const [viewMode, setViewMode] = useState<'timeline' | 'grouped'>('timeline');
     const [selectedOriginalId, setSelectedOriginalId] = useState<string | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
+    // const [searchQuery, setSearchQuery] = useState(''); // Moved to App.tsx
 
     // 1. Calculate Grouped Data (Stable, depends only on history)
     const groupedData = useMemo(() => {
@@ -179,6 +185,16 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
 
     const containerRef = useRef<HTMLDivElement>(null);
     const imagesVersionRef = useRef(0);
+
+    // Focus Management: Focus container on mount or search update
+    useEffect(() => {
+        if (isOpen && containerRef.current) {
+            // Slight delay to ensure render and transition
+            setTimeout(() => {
+                containerRef.current?.focus();
+            }, 50);
+        }
+    }, [isOpen, searchQuery]);
 
     const focusedIndexRef = useRef(focusedIndex);
     const justifiedRowsRef = useRef<JustifiedRow[]>([]);
@@ -785,54 +801,46 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
                     <span className="text-[10px] text-stone-600 font-mono ml-2 hidden sm:inline-block">{t('gallery.keyboardHint')}</span>
                 </div>
 
-                {/* Center: Toggle Switch */}
+                {/* Center: Search Input */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="bg-stone-900 p-1 rounded-lg flex gap-1 pointer-events-auto shadow-sm border border-stone-800/50">
+                    <div className="pointer-events-auto relative w-64">
+                        <SearchInputWithHistory
+                            value={searchQuery}
+                            onChange={(val) => onSearchChange(val)}
+                            onSearch={(val) => onSearchChange(val)}
+                            theme="dark"
+                        />
+                    </div>
+                </div>
+
+                {/* Right: View Toggles + Close */}
+                <div className="z-10 flex items-center gap-2">
+                    {/* View Switch */}
+                    <div className="bg-stone-900 p-1 rounded-lg flex gap-1 shadow-sm border border-stone-800/50 mr-4">
                         <button
                             onClick={() => setViewMode('timeline')}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-medium ${viewMode === 'timeline' ? 'bg-stone-800 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
-                            title="时间流视图"
+                            title={t('gallery.tooltip.timeline')}
                         >
                             <Icons.Clock size={14} />
-                            <span>时间流</span>
+                            <span>{t('gallery.label.timeline')}</span>
                         </button>
                         <button
                             onClick={() => setViewMode('grouped')}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all text-xs font-medium ${viewMode === 'grouped' ? 'bg-stone-800 text-white shadow-sm' : 'text-stone-500 hover:text-stone-300'}`}
-                            title="原图聚合视图"
+                            title={t('gallery.tooltip.aggregation')}
                         >
                             <Icons.FolderOpen size={14} />
-                            <span>聚合</span>
+                            <span>{t('gallery.label.aggregation')}</span>
                         </button>
                     </div>
-                </div>
 
-                {/* Right: Search + Close */}
-                <div className="z-10 flex items-center gap-2">
-                    {/* Search Input */}
-                    <div className="relative">
-                        <Icons.Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-500" />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder={t('gallery.search.placeholder')}
-                            className="w-48 pl-8 pr-3 py-1.5 bg-stone-900 border border-stone-800 rounded-lg text-xs text-stone-200 placeholder:text-stone-600 focus:outline-none focus:border-amber-500/50 transition-colors"
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery('')}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-500 hover:text-stone-300"
-                            >
-                                <Icons.X size={12} />
-                            </button>
-                        )}
-                    </div>
                     <button
                         onClick={onClose}
-                        className="p-2 rounded-full hover:bg-stone-900 text-stone-500 hover:text-stone-200 transition-all active:scale-95"
+                        className="p-1.5 bg-stone-900 hover:bg-stone-800 rounded-lg text-stone-400 hover:text-white transition-all border border-stone-800"
+                        title={t('gallery.tooltip.close')}
                     >
-                        <Icons.X size={20} />
+                        <Icons.X size={18} />
                     </button>
                 </div>
             </div>

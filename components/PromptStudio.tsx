@@ -12,6 +12,7 @@ import { AspectRatioSelector } from './AspectRatioSelector';
 import { ReferenceImageList } from './ReferenceImageList';
 import { PromptDiffView } from './PromptDiffView';
 import { ChatSidebar } from './ChatSidebar';
+import { SearchInputWithHistory } from './SearchInputWithHistory';
 import { AppState, RefineModeConfig, ReverseModeConfig, ReferenceImage, PipelineProgress, ChatMessage } from '../types';
 import { executeSmartAnalysis, translatePrompt } from '../services/geminiService';
 import { promptManager } from '../services/promptManager';
@@ -278,8 +279,16 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                     )
                 }
 
-                {/* Textarea Actions Toolbar - Top Right */}
+                {/* Textarea Actions Toolbar - Center & Right */}
+
+                {/* Textarea Actions Toolbar - Center & Right */}
+
+                {/* Search Input Removed (Moved to Global Header) */}
+
+                {/* Right Actions (Translate, etc) */}
                 <div className="absolute top-5 right-8 z-30 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    {/* Search Removed from here */}
+
                     {/* Translate Dropdown */}
                     <div className="relative">
                         <button

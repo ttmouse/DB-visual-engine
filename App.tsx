@@ -66,6 +66,7 @@ import { PromptStudio } from './components/PromptStudio';
 import { AgentWorkbench } from './components/AgentWorkbench';
 import { ChatSidebar } from './components/ChatSidebar';
 import { MainVisualizer } from './components/MainVisualizer';
+import { SearchInputWithHistory } from './components/SearchInputWithHistory';
 
 
 
@@ -148,6 +149,14 @@ const App: React.FC = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isChatProcessing, setIsChatProcessing] = useState(false);
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      setIsGalleryOpen(true);
+    }
+  };
   // const [aiInput, setAiInput] = useState(''); // MOVED
   // const [isReverseMenuOpen, setIsReverseMenuOpen] = useState(false); // MOVED
 
@@ -1122,7 +1131,7 @@ const App: React.FC = () => {
       <React.Suspense fallback={null}>
         <GalleryModal
           isOpen={isGalleryOpen}
-          onClose={() => setIsGalleryOpen(false)}
+          onClose={() => { setIsGalleryOpen(false); setSearchQuery(''); }}
           images={state.generatedImages}
           history={state.history}
           prompts={state.history.map(h => h.prompt)}
@@ -1134,6 +1143,8 @@ const App: React.FC = () => {
             setDisplayImage(imgUrl);
             setIsComparisonMode(true);
           }}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
       </React.Suspense>
 
@@ -1157,6 +1168,17 @@ const App: React.FC = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/90 backdrop-blur-md border-b border-stone-800 h-16 flex items-center justify-between px-10">
         <div className="flex items-center gap-3">
           <span className="font-serif font-bold text-xl tracking-tight text-stone-200">UnImage <span className="text-orange-500 text-sm align-top">PRO</span></span>
+        </div>
+
+        {/* Center: Search Input */}
+        <div className="absolute left-1/2 -translate-x-1/2 w-80">
+          <SearchInputWithHistory
+            value={searchQuery}
+            onChange={handleSearch}
+            onSearch={handleSearch}
+            theme="glass" // Use glass theme for header
+            placeholder={t('gallery.search.placeholder')}
+          />
         </div>
 
         {/* 全局进度条 */}

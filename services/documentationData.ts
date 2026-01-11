@@ -43,6 +43,24 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
                 titleEN: "Release Notes",
                 icon: "History",
                 contentCN: `
+## v2.8.0 (2026-01-11)
+### 🔍 统一搜索体验 (Unified Search)
+- **全局搜索入口**: 搜索框现已移动至顶部导航栏正中央，随时随地皆可搜索。
+- **历史记录支持**: 新增搜索历史记录功能，自动保存最近 10 条搜索关键词。
+- **智能交互**: 
+  - 搜索结果自动打开相册展示。
+  - 关闭相册自动清空搜索内容，保持界面整洁。
+  - 搜索后自动聚焦相册内容，直接通过键盘方向键即可浏览图片。
+
+### 🎨 界面与交互优化 (UI/UX)
+- **Prompt Studio**: 移除了重复的搜索框，界面更加清爽。
+- **Gallery**: 优化了顶部布局，视觉更加平衡。
+- **快捷键**: 增强了键盘导航支持。
+
+### 🛠️ 系统优化
+- **多线程生成**: 优化了后端生成队列（v2.7.x）。
+- **国际化**: 全面覆盖的中英文支持。
+
 ## v2.7.4 (2026-01-08)
 
 ### 新增功能
@@ -117,6 +135,24 @@ export const DOCUMENTATION_CATEGORIES: DocCategory[] = [
 *更多历史版本请查看项目仓库的 Release 页面*
 `,
                 contentEN: `
+## v2.8.0 (2026-01-11)
+### 🔍 Unified Search Experience
+- **Global Search Bar**: Moved to the center of the top navigation bar for easy access.
+- **Search History**: Automatically saves your last 10 search terms.
+- **Smart Interaction**: 
+  - Search results open directly in the Gallery.
+  - Search query clears automatically when closing the Gallery.
+  - Auto-focus on gallery content allows immediate keyboard navigation.
+
+### 🎨 UI/UX Improvements
+- **Prompt Studio**: simplified toolbar layout.
+- **Gallery**: Refined header layout for better visual balance.
+- **Shortcuts**: Enhanced keyboard navigation support.
+
+### 🛠️ System
+- **Multi-threading**: Optimized generation queue.
+- **I18n**: Comprehensive English/Chinese support.
+
 ## v2.7.4 (2026-01-08)
 
 ### New Features
