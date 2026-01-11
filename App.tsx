@@ -1327,10 +1327,11 @@ const App: React.FC = () => {
         {/* Hover Reveal Tab (The "Ear") */}
         <div
           onClick={() => setIsGalleryOpen(true)}
-          className="absolute left-1/2 -translate-x-1/2 top-0 h-6 w-32 bg-stone-950/95 border-x border-t border-stone-800 rounded-t-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ease-out opacity-0 translate-y-0 group-hover/historybar:-translate-y-full group-hover/historybar:opacity-100 z-[-1]"
+          className="absolute left-1/2 -translate-x-1/2 top-0 h-8 w-48 bg-stone-950/95 border-x border-t border-stone-800 border-t-orange-500/50 rounded-t-xl flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 ease-out opacity-0 translate-y-0 group-hover/historybar:-translate-y-full group-hover/historybar:opacity-100 z-[-1] hover:bg-stone-900 shadow-[0_-4px_12px_rgba(0,0,0,0.3)]"
           title={t('gallery.openHoverTab')}
         >
-          <Icons.ChevronUp size={16} className="text-stone-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t('studio.history')}</span>
+          <Icons.ChevronUp size={14} className="text-orange-500/70 animate-bounce" />
         </div>
         {/* History List - Full Width */}
         {state.generatedImages.length === 0 ? (
