@@ -10,6 +10,7 @@ import { AppState, HistoryItem, GenerationTask } from '../types';
 import { generateImageFromPrompt } from '../services/geminiService';
 import { generateThumbnail } from '../utils/thumbnailUtils';
 import { saveHistoryItem } from '../services/historyService';
+import { soundService } from '../services/soundService';
 
 /** Maximum number of concurrent image generation tasks */
 const CONCURRENCY_LIMIT = 3;
@@ -51,14 +52,21 @@ export const useImageGeneration = ({
                 )
             }));
 
+            // Setup Timeout (90s)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 seconds timeout
+
             try {
                 const img = await generateImageFromPrompt(
                     nextTask.prompt,
                     nextTask.aspectRatio,
                     nextTask.is4K,
                     nextTask.referenceImage,
-                    nextTask.mimeType
+                    nextTask.mimeType,
+                    controller.signal
                 );
+
+                clearTimeout(timeoutId); // Clear timeout on success
 
                 if (!img) {
                     throw new Error("No image data returned");
@@ -107,8 +115,17 @@ export const useImageGeneration = ({
                 });
 
                 showToast(t('toast.successGenerated', { count: 1, total: 1 }), 'success');
+                soundService.playComplete();
             } catch (err: unknown) {
-                const errorMsg = err instanceof Error ? err.message : 'Generation failed';
+                clearTimeout(timeoutId); // Clear timeout on error
+
+                let errorMsg = err instanceof Error ? err.message : 'Generation failed';
+
+                // Handle Timeout specifically
+                if (err instanceof DOMException && err.name === 'AbortError') {
+                    errorMsg = t('error.timeout') || "Request Timed Out (90s)";
+                }
+
                 console.error(`Task ${nextTask.id} failed:`, err);
 
                 setState(prev => ({
@@ -186,8 +203,14 @@ export const useImageGeneration = ({
             ...prev,
             tasks: [...prev.tasks, ...newTasks],
             history: [...newHistoryPlaceholders, ...prev.history],
-            selectedHistoryIndex: 0
+            // Maintain current view by shifting index (User Requirement: Don't auto-switch)
+            selectedHistoryIndex: typeof prev.selectedHistoryIndex === 'number'
+                ? prev.selectedHistoryIndex + count
+                : 0
         }));
+
+        // Play start sound effect
+        soundService.playStart();
 
         // showToast(t('toast.generatingImages', { count }), 'info');
     }

@@ -24,6 +24,7 @@ const volcengineProxyPlugin = () => {
           import('https').then(https => {
             const proxyReq = https.request(`https://${targetHost}${targetPath}`, {
               method: req.method,
+              timeout: 300000, // 5 minutes timeout
               headers: {
                 // Only pass necessary headers, stripping everything else
                 'Authorization': req.headers['authorization'],
@@ -37,10 +38,22 @@ const volcengineProxyPlugin = () => {
               proxyRes.pipe(res);
             });
 
+            // Handle timeout explicitly
+            proxyReq.on('timeout', () => {
+              console.error('[Middleware Proxy] Request timeout');
+              proxyReq.destroy();
+              if (!res.headersSent) {
+                res.writeHead(504, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Proxy Request Timeout (Local)' }));
+              }
+            });
+
             proxyReq.on('error', (err) => {
               console.error('[Middleware Proxy] Error:', err);
               if (!res.headersSent) {
-                res.writeHead(502, { 'Content-Type': 'application/json' });
+                // Determine if it was a timeout that caused the error
+                const status = (err as any).code === 'ECONNRESET' ? 504 : 502;
+                res.writeHead(status, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: err.message }));
               }
             });
@@ -71,16 +84,25 @@ export default defineConfig(({ mode }) => {
         '/api/volcengine-models': {
           target: 'https://ark.ap-southeast.bytepluses.com',
           changeOrigin: true,
+          secure: false,
+          timeout: 300000,
+          proxyTimeout: 300000,
           rewrite: (path) => path.replace(/^\/api\/volcengine-models/, '/api/v3/models'),
         },
         '/api/volcengine-chat': {
           target: 'https://ark.ap-southeast.bytepluses.com',
           changeOrigin: true,
+          secure: false,
+          timeout: 300000,
+          proxyTimeout: 300000,
           rewrite: (path) => path.replace(/^\/api\/volcengine-chat/, '/api/v3/chat/completions'),
         },
         '/api/volcengine': {
           target: 'https://ark.ap-southeast.bytepluses.com',
           changeOrigin: true,
+          secure: false,
+          timeout: 300000,
+          proxyTimeout: 300000,
           rewrite: (path) => path.replace(/^\/api\/volcengine/, '/api/v3/images/generations'),
         }
       }

@@ -1,8 +1,16 @@
+/**
+ * [INPUT]: 依赖 React, Icons, LayoutOverlay
+ * [OUTPUT]: 渲染 ImageComparisonSlider 组件 (图片对比/蓝图分析)
+ * [POS]: components/ImageComparisonSlider, 图片对比滑块, 被 MainVisualizer 消费
+ * [PROTOCOL]: 变更时更新此头部, 然后检查 CLAUDE.md
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Icons } from './Icons';
 import { LayoutOverlay } from './LayoutOverlay';
 import { LayoutElement } from '../types';
 import { ImageZoomState, calculateNewZoom } from '../utils/zoom';
+import { ScanningPlaceholder } from './ScanningPlaceholder';
 
 interface ImageComparisonSliderProps {
   beforeImage: string | null;
@@ -16,6 +24,7 @@ interface ImageComparisonSliderProps {
   onFullscreen?: () => void;
   zoom?: ImageZoomState;
   onZoomChange?: (newZoom: ImageZoomState) => void;
+  isProcessing?: boolean;
 }
 
 export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
@@ -30,6 +39,7 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
   onFullscreen,
   zoom = { scale: 1, panX: 0, panY: 0 },
   onZoomChange,
+  isProcessing = false
 }) => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
@@ -167,14 +177,28 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
 
           {/* After Image */}
           <div className="flex-1 relative overflow-hidden">
-            <img
-              src={afterImage}
-              alt={afterLabel}
-              className="w-full h-full object-contain transition-transform duration-100"
-              style={transformStyle}
-              draggable={false}
-            />
-            <div className="absolute top-3 right-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-white/90 select-none flex items-center">
+            {afterImage ? (
+              <img
+                src={afterImage}
+                alt={afterLabel}
+                className="w-full h-full object-contain transition-transform duration-100"
+                style={transformStyle}
+                draggable={false}
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-stone-900 text-stone-600">
+                <Icons.Slash size={32} />
+              </div>
+            )}
+
+            {/* Show scanning placeholder on the 'After' side if processing */}
+            {isProcessing && (
+              <div className="absolute inset-0 z-10">
+                <ScanningPlaceholder />
+              </div>
+            )}
+
+            <div className="absolute top-3 right-3 px-2 py-1 bg-black/40 backdrop-blur-sm rounded text-white/90 select-none flex items-center z-20">
               <span className="text-[10px] font-medium uppercase tracking-wider leading-none pt-[1px]">{afterLabel}</span>
             </div>
           </div>
@@ -225,13 +249,30 @@ export const ImageComparisonSlider: React.FC<ImageComparisonSliderProps> = ({
       className={`relative rounded-xl border border-stone-700 bg-stone-950 overflow-hidden select-none group h-full w-full ${className}`}
     >
 
-      <img
-        src={afterImage}
-        alt={afterLabel}
-        className="absolute inset-0 w-full h-full object-contain transition-transform duration-100"
-        style={transformStyle}
-        draggable={false}
-      />
+      {afterImage ? (
+        <img
+          src={afterImage}
+          alt={afterLabel}
+          className="absolute inset-0 w-full h-full object-contain transition-transform duration-100"
+          style={transformStyle}
+          draggable={false}
+        />
+      ) : (
+        <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-stone-900 text-stone-600">
+          <Icons.Slash size={48} opacity={0.3} />
+        </div>
+      )}
+
+      {/* Global Processing Overlay for Slider Mode - covers the whole area but maybe we want it only on the 'revealed' part? 
+          Actually for slider mode, it's better to just show it generally or properly layered.
+          If we are processing, the 'After' image is likely invalid or stale. 
+          Let's put the placeholder BEHIND the before image? Or on top?
+          Standard behavior: If processing, show placeholder ON TOP of everything to indicate busy state
+          OR show it only where the 'After' image would be.
+          
+          Let's render it at the bottom layer but above the empty state.
+      */}
+      {isProcessing && <ScanningPlaceholder />}
 
       {beforeImage ? (
         <img

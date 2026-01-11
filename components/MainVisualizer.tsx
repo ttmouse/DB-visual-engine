@@ -133,6 +133,17 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
         ? getImageSrc(currentGeneratedImage, 'image/png')
         : getOriginalFromHistory(history, selectedHistoryIndex);
 
+    // Determine if the CURRENTLY VIEWED item is processing
+    // 1. If we are dragging a new image, we are not processing a result yet.
+    // 2. If global isProcessing is true AND we are at the latest index (or a specifically pending index), show loading.
+    // 3. Robust check: If the history item specifically says 'status: pending', trust that.
+    const selectedItem = history[selectedHistoryIndex];
+    const activeItemIsProcessing =
+        // Case A: Explicit status from history (if supported by backend/types)
+        selectedItem?.status === 'pending' ||
+        // Case B: Global processing state, assume it applies to the new tip of history if we are there
+        (isProcessing && (history.length === 0 || selectedHistoryIndex === 0));
+
     return (
         <>
             {/* Left Panel: Image Display */}
@@ -214,6 +225,7 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
                                         onFullscreen={() => { setFullscreenImg(displayImage); setIsFullscreenComparison(true); }}
                                         zoom={imageZoom}
                                         onZoomChange={handleZoomChange}
+                                        isProcessing={activeItemIsProcessing}
                                     />
                                 ) : (
                                     <ImageViewer
@@ -225,6 +237,7 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
                                         onFullscreen={() => setFullscreenImg(activeGeneratedImage)}
                                         zoom={imageZoom}
                                         onZoomChange={handleZoomChange}
+                                        isProcessing={activeItemIsProcessing}
                                     />
                                 )
                             ) : displayImage ? (
@@ -237,6 +250,7 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
                                     onFullscreen={() => setFullscreenImg(displayImage)}
                                     zoom={imageZoom}
                                     onZoomChange={handleZoomChange}
+                                    isProcessing={isProcessing && !generatedImages.length} // Only show global processing if we have NO generated images yet (first run)
                                 />
                             ) : null}
                         </div>
