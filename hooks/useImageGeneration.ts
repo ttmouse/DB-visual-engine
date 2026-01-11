@@ -5,20 +5,21 @@
  * [PROTOCOL]: 变更时更新此头部
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { AppState, HistoryItem, GenerationTask } from '../types';
 import { generateImageFromPrompt } from '../services/geminiService';
 import { generateThumbnail } from '../utils/thumbnailUtils';
 import { saveHistoryItem } from '../services/historyService';
 
-const CONCURRENCY_LIMIT = 3; // Allow 3 parallel generations
+/** Maximum number of concurrent image generation tasks */
+const CONCURRENCY_LIMIT = 3;
 
 interface UseImageGenerationProps {
     state: AppState;
     setState: React.Dispatch<React.SetStateAction<AppState>>;
     selectedAspectRatio: string;
     is4K: boolean;
-    t: (key: string, options?: any) => string;
+    t: (key: string, options?: Record<string, unknown>) => string;
     showToast: (message: string, type: 'success' | 'error' | 'info', duration?: number) => void;
 }
 
@@ -31,28 +32,26 @@ export const useImageGeneration = ({
     showToast
 }: UseImageGenerationProps) => {
 
-    // --- Task Queue Manager ---
-    // Watches state.tasks and picks up pending tasks if concurrency limit allows
+    // Task Queue Manager: Processes pending tasks respecting concurrency limit
     useEffect(() => {
         const processQueue = async () => {
-            const pendingTasks = state.tasks.filter(t => t.status === 'pending');
-            const processingTasks = state.tasks.filter(t => t.status === 'processing');
+            const pendingTasks = state.tasks.filter(task => task.status === 'pending');
+            const processingCount = state.tasks.filter(task => task.status === 'processing').length;
 
-            if (pendingTasks.length === 0) return;
-            if (processingTasks.length >= CONCURRENCY_LIMIT) return;
+            if (pendingTasks.length === 0 || processingCount >= CONCURRENCY_LIMIT) return;
 
-            // Pick next task
             const nextTask = pendingTasks[0];
 
-            // Mark as Processing in Task Queue
+            // Mark as Processing
             setState(prev => ({
                 ...prev,
                 isGeneratingImage: true,
-                tasks: prev.tasks.map(t => t.id === nextTask.id ? { ...t, status: 'processing' } : t)
+                tasks: prev.tasks.map(task =>
+                    task.id === nextTask.id ? { ...task, status: 'processing' } : task
+                )
             }));
 
             try {
-                // Execute Generation
                 const img = await generateImageFromPrompt(
                     nextTask.prompt,
                     nextTask.aspectRatio,
@@ -61,142 +60,136 @@ export const useImageGeneration = ({
                     nextTask.mimeType
                 );
 
-                if (img) {
-                    // Success Handling
-                    let thumbBase64: string | undefined;
-                    try {
-                        thumbBase64 = await generateThumbnail(img, 'image/png');
-                    } catch (thumbErr) {
-                        console.warn('Thumbnail generation failed:', thumbErr);
-                    }
-
-                    // Create final history item (completing the placeholder)
-                    const completedItem: HistoryItem = {
-                        id: nextTask.id, // Match the ID used for the placeholder
-                        groupId: state.currentGroupId,
-                        timestamp: Date.now(),
-                        originalImage: state.image!,
-                        mimeType: state.mimeType,
-                        prompt: nextTask.prompt,
-                        generatedImage: img,
-                        generatedImageThumb: thumbBase64,
-                        referenceImages: state.referenceImages?.length ? [...state.referenceImages] : undefined,
-                        status: 'success'
-                    };
-
-                    // Persist to DB
-                    await saveHistoryItem(completedItem);
-
-                    // Update state: Replace pending placeholder with completed item
-                    setState(prev => {
-                        // Find and update the specific history item
-                        const updatedHistory = prev.history.map(item =>
-                            item.id === nextTask.id ? completedItem : item
-                        );
-
-                        // Update gallery thumbnails
-                        const imageForGallery = thumbBase64 || img;
-
-                        return {
-                            ...prev,
-                            // Set the active generated image if it's the most recent one (or user intent?)
-                            // For multi-threading, we might not want to snap the view away if they are editing something else.
-                            // But usually, latest generation is shown. Let's start with showing it.
-                            generatedImage: img,
-                            generatedImages: [imageForGallery, ...prev.generatedImages].slice(0, 50),
-                            history: updatedHistory,
-                            tasks: prev.tasks.map(t => t.id === nextTask.id ? { ...t, status: 'completed', resultImage: img, completedAt: Date.now() } : t)
-                        };
-                    });
-
-                    showToast(t('toast.successGenerated', { count: 1, total: 1 }), 'success');
-                } else {
+                if (!img) {
                     throw new Error("No image data returned");
                 }
-            } catch (err: any) {
+
+                // Generate thumbnail (non-blocking failure)
+                let thumbBase64: string | undefined;
+                try {
+                    thumbBase64 = await generateThumbnail(img, 'image/png');
+                } catch (thumbErr) {
+                    console.warn('Thumbnail generation failed:', thumbErr);
+                }
+
+                const completedItem: HistoryItem = {
+                    id: nextTask.id,
+                    groupId: state.currentGroupId,
+                    timestamp: Date.now(),
+                    originalImage: state.image ?? '',
+                    mimeType: state.mimeType,
+                    prompt: nextTask.prompt,
+                    generatedImage: img,
+                    generatedImageThumb: thumbBase64,
+                    referenceImages: state.referenceImages?.length ? [...state.referenceImages] : undefined,
+                    status: 'success'
+                };
+
+                await saveHistoryItem(completedItem);
+
+                setState(prev => {
+                    const updatedHistory = prev.history.map(item =>
+                        item.id === nextTask.id ? completedItem : item
+                    );
+                    const imageForGallery = thumbBase64 || img;
+
+                    return {
+                        ...prev,
+                        generatedImage: img,
+                        generatedImages: [imageForGallery, ...prev.generatedImages].slice(0, 50),
+                        history: updatedHistory,
+                        tasks: prev.tasks.map(task =>
+                            task.id === nextTask.id
+                                ? { ...task, status: 'completed', resultImage: img, completedAt: Date.now() }
+                                : task
+                        )
+                    };
+                });
+
+                showToast(t('toast.successGenerated', { count: 1, total: 1 }), 'success');
+            } catch (err: unknown) {
+                const errorMsg = err instanceof Error ? err.message : 'Generation failed';
                 console.error(`Task ${nextTask.id} failed:`, err);
-                const errorMsg = err?.message || "Generation failed";
 
                 setState(prev => ({
                     ...prev,
-                    // Update history item to show error state? Or just remove it?
-                    // Let's mark it as error so user knows.
                     history: prev.history.map(item =>
                         item.id === nextTask.id ? { ...item, status: 'error' } : item
                     ),
-                    tasks: prev.tasks.map(t => t.id === nextTask.id ? { ...t, status: 'failed', error: errorMsg, completedAt: Date.now() } : t)
+                    tasks: prev.tasks.map(task =>
+                        task.id === nextTask.id
+                            ? { ...task, status: 'failed', error: errorMsg, completedAt: Date.now() }
+                            : task
+                    )
                 }));
                 showToast(`Task failed: ${errorMsg}`, 'error');
             }
         };
 
         processQueue();
-    }, [state.tasks]); // Re-run whenever tasks change
+    }, [state.tasks]);
 
 
-    // Original handler now just adds to queue and creates placeholders
-    async function handleGenerateImage(customPrompt?: string, count: number = 1) {
-        const p = customPrompt || state.editablePrompt;
-        if (!p) return;
+    /** Adds generation tasks to the queue and creates history placeholders */
+    function handleGenerateImage(customPrompt?: string, count: number = 1): void {
+        const prompt = customPrompt || state.editablePrompt;
+        if (!prompt) return;
 
-        // Prepare task parameters (snapshot current settings)
+        // Determine reference image and settings
         let refImage: string | null = null;
         let targetMimeType = state.mimeType || 'image/jpeg';
         let detectedRatio = selectedAspectRatio || state.detectedAspectRatio;
 
-        if (state.referenceImages && state.referenceImages.length > 0) {
-            refImage = state.referenceImages[0].url;
-            targetMimeType = state.referenceImages[0].mimeType;
-            if (!selectedAspectRatio && state.referenceImages[0].aspectRatio) {
-                detectedRatio = state.referenceImages[0].aspectRatio;
+        if (state.referenceImages?.length) {
+            const firstRef = state.referenceImages[0];
+            refImage = firstRef.url;
+            targetMimeType = firstRef.mimeType;
+            if (!selectedAspectRatio && firstRef.aspectRatio) {
+                detectedRatio = firstRef.aspectRatio;
             }
         } else if (state.useReferenceImage && state.image) {
             refImage = state.image;
             targetMimeType = state.mimeType;
         }
 
+        const now = Date.now();
         const newTasks: GenerationTask[] = [];
         const newHistoryPlaceholders: HistoryItem[] = [];
-        const now = Date.now();
 
         for (let i = 0; i < count; i++) {
             const taskId = crypto.randomUUID();
 
-            // Create Task
             newTasks.push({
                 id: taskId,
                 status: 'pending',
-                prompt: p,
+                prompt,
                 aspectRatio: detectedRatio,
-                is4K: is4K,
+                is4K,
                 referenceImage: refImage,
                 mimeType: targetMimeType,
                 createdAt: now + i
             });
 
-            // Create History Placeholder
             newHistoryPlaceholders.push({
-                id: taskId, // Same ID to link them
+                id: taskId,
                 groupId: state.currentGroupId,
                 timestamp: now + i,
-                originalImage: state.image || '', // Might be empty if pure text-to-image
-                prompt: p,
+                originalImage: state.image || '',
+                prompt,
                 mimeType: targetMimeType,
                 referenceImages: state.referenceImages?.length ? [...state.referenceImages] : undefined,
-                status: 'pending' // Flag for UI to show loading
+                status: 'pending'
             });
         }
 
-        // Add both to state instantly
-        // NOTE: We prepend newHistoryPlaceholders to state.history to ensure they appear on the LEFT (start of list).
         setState(prev => ({
             ...prev,
             tasks: [...prev.tasks, ...newTasks],
             history: [...newHistoryPlaceholders, ...prev.history],
-            selectedHistoryIndex: 0 // Optional: Auto-select the first new placeholder? Let's leave it to user or auto-select first.
+            selectedHistoryIndex: 0
         }));
 
-        showToast(t('toast.generatingImages', { count }), 'info');
+        // showToast(t('toast.generatingImages', { count }), 'info');
     }
 
     return { handleGenerateImage };

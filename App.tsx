@@ -740,7 +740,7 @@ const App: React.FC = () => {
 
     // Lightweight check: If image is missing but ID exists, fetch full item
     if ((!item.generatedImage && !item.originalImage) && item.id) {
-      showToast(t('toast.loading'), 'info', 500);
+      // showToast(t('toast.loading'), 'info', 500);
       const fetched = await getHistoryItemById(item.id);
       if (fetched) {
         item = fetched;
@@ -752,7 +752,7 @@ const App: React.FC = () => {
     if (targetImage) {
       setDisplayImage(getImageSrc(targetImage, item.mimeType || 'image/png'));
       setIsComparisonMode(true);
-      showToast(t('toast.addedToComparison'), 'success');
+      // showToast(t('toast.addedToComparison'), 'success');
     }
   }, [state.history, t, showToast]);
 
@@ -1301,7 +1301,15 @@ const App: React.FC = () => {
 
       {/* Persistence History Bottom Bar */}
       {/* Persistence History Bottom Bar */}
-      <div className="fixed bottom-0 left-0 right-0 h-24 bg-stone-950/90 backdrop-blur-md border-t border-stone-800 z-40 transform transition-transform duration-300 ease-in-out flex items-center shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
+      <div className="group/historybar fixed bottom-0 left-0 right-0 h-24 bg-stone-950/90 backdrop-blur-md border-t border-stone-800 z-40 transform transition-transform duration-300 ease-in-out flex items-center shadow-[0_-4px_20px_rgba(0,0,0,0.2)]">
+        {/* Hover Reveal Tab (The "Ear") */}
+        <div
+          onClick={() => setIsGalleryOpen(true)}
+          className="absolute left-1/2 -translate-x-1/2 top-0 h-6 w-32 bg-stone-950/95 border-x border-t border-stone-800 rounded-t-2xl flex items-center justify-center cursor-pointer transition-all duration-300 ease-out opacity-0 translate-y-0 group-hover/historybar:-translate-y-full group-hover/historybar:opacity-100 z-[-1]"
+          title="打开相册 (Open Gallery)"
+        >
+          <Icons.ChevronUp size={16} className="text-stone-500 animate-pulse" />
+        </div>
         {/* History List - Full Width */}
         {state.generatedImages.length === 0 ? (
           <div className="w-full flex items-center justify-center text-stone-600 gap-2">

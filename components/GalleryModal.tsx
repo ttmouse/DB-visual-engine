@@ -402,6 +402,11 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
             const navMap = navigationMapRef.current;
             const currentPos = navMap[selectedIndex];
 
+            // IGNORE SHORTCUTS IF TYPING IN INPUT
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
+
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
@@ -495,6 +500,11 @@ export const GalleryModal: React.FC<GalleryModalProps> = ({
             const currentFocused = focusedIndexRef.current;
             const rows = justifiedRowsRef.current;
             const navMap = navigationMapRef.current;
+
+            // IGNORE SHORTCUTS IF TYPING IN INPUT
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+                return;
+            }
 
             if (e.key === 'Escape') {
                 e.preventDefault();
