@@ -279,7 +279,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                 }
 
                 {/* Textarea Actions Toolbar - Top Right */}
-                <div className="absolute top-3 right-8 z-30 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <div className="absolute top-5 right-8 z-30 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {/* Translate Dropdown */}
                     <div className="relative">
                         <button
