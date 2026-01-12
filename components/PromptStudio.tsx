@@ -77,6 +77,7 @@ interface PromptStudioProps {
     setIsHistoryDropdownOpen: (open: boolean) => void;
     hoveredHistoryIndex: number | null;
     setHoveredHistoryIndex: (index: number | null) => void;
+    onParseTwitterUrl: (url: string) => void;
 }
 
 export const PromptStudio: React.FC<PromptStudioProps> = ({
@@ -97,6 +98,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
     handleChatSendMessage,
     handleSetApiMode,
     setIsChatDrawerOpen,
+    onParseTwitterUrl,
     isChatDrawerOpen,
     isChatProcessing,
     chatMessages,
@@ -136,6 +138,8 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
 
     const [versionMenuPos, setVersionMenuPos] = useState({ top: 0, left: 0 });
     const [historyMenuPos, setHistoryMenuPos] = useState({ top: 0, left: 0 });
+
+
     const versionButtonRef = useRef<HTMLButtonElement>(null);
     const historyButtonRef = useRef<HTMLButtonElement>(null);
     const refineButtonRef = useRef<HTMLButtonElement>(null);
@@ -446,20 +450,20 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                     {/* @ Mention Button with Dropdown */}
                     < div className="relative flex-shrink-0 z-50" >
                         <button
-                            onClick={() => (state.image || state.generatedImage) && setIsMentionMenuOpen(!isMentionMenuOpen)}
-                            disabled={!state.image && !state.generatedImage}
-                            className={`flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${!state.image && !state.generatedImage
+                            onClick={() => (state.image || state.generatedImage || state.editablePrompt) && setIsMentionMenuOpen(!isMentionMenuOpen)}
+                            disabled={!state.image && !state.generatedImage && !state.editablePrompt}
+                            className={`flex items-center justify-center px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${!state.image && !state.generatedImage && !state.editablePrompt
                                 ? 'bg-stone-900 text-stone-600 border-stone-800 cursor-not-allowed opacity-50'
                                 : isMentionMenuOpen
                                     ? 'bg-amber-900/40 text-amber-400 border-amber-500/30'
                                     : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-amber-400 border-transparent'
                                 }`}
-                            title={state.image || state.generatedImage ? t('studio.mention.tooltip') : t('studio.mention.tooltipDisabled')}
+                            title={state.image || state.generatedImage || state.editablePrompt ? t('studio.mention.tooltip') : t('studio.mention.tooltipDisabled')}
                         >
                             @
                         </button>
                         {
-                            isMentionMenuOpen && (state.image || state.generatedImage) && (
+                            isMentionMenuOpen && (state.image || state.generatedImage || state.editablePrompt) && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setIsMentionMenuOpen(false)} />
                                     <div className="absolute bottom-full left-0 mb-1 bg-stone-900 border border-stone-700 rounded-lg shadow-xl z-50 overflow-hidden min-w-[120px] py-1">
@@ -492,6 +496,18 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                                 {aiInput.includes('@生成图') && <Icons.Check size={12} className="ml-auto" />}
                                             </button>
                                         )}
+                                        <button
+                                            onClick={() => {
+                                                const tag = '@JSON中文提示词';
+                                                setAiInput(prev => prev.includes(tag) ? prev.replace(tag, '').trim() : (prev + ' ' + tag).trim());
+                                                setIsMentionMenuOpen(false);
+                                            }}
+                                            className={`w-full text-left px-3 py-2 hover:bg-stone-800 flex items-center gap-2 transition-colors whitespace-nowrap ${aiInput.includes('@JSON中文提示词') ? 'text-blue-400' : 'text-stone-300'}`}
+                                        >
+                                            <Icons.FileJson size={14} />
+                                            <span className="text-xs">@JSON中文提示词</span>
+                                            {aiInput.includes('@JSON中文提示词') && <Icons.Check size={12} className="ml-auto" />}
+                                        </button>
                                     </div>
                                 </>
                             )
@@ -697,7 +713,10 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                                     setIsChatDrawerOpen(true);
                                 }
                             }}
-                            onPaste={(e) => {
+                            onPaste={async (e) => {
+                                const clipboardText = e.clipboardData.getData('text');
+                                onParseTwitterUrl(clipboardText);
+
                                 const items = e.clipboardData?.items;
                                 if (!items) return;
 
@@ -1048,6 +1067,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                 </div>,
                 document.body
             )}
+
         </div >
     );
 };

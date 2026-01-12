@@ -36,6 +36,7 @@ import { useImagePipeline } from './hooks/useImagePipeline';
 import { useImageGeneration } from './hooks/useImageGeneration';
 import { I18nProvider, useI18n } from './hooks/useI18n';
 import { useResizablePanel } from './hooks/useResizablePanel';
+import { useClipboardDetection } from './hooks/useClipboardDetection';
 import { PipelineProgressView } from './components/PipelineProgressView';
 import { AGENTS, PIPELINE_ORDER } from './constants';
 import { AgentRole, AppState, HistoryItem, ChatMessage, PipelineStepStatus, ReferenceImage, TabType, RefineModeConfig, ReverseModeConfig } from './types';
@@ -59,7 +60,8 @@ import { PromptDiffView } from './components/PromptDiffView';
 import { hasSignificantDiff } from './utils/promptDiff';
 import { ImageDetailViewer } from './components/ImageDetailViewer';
 import { INITIAL_STATE, INITIAL_RESULTS } from './constants/appState';
-import { getImageSrc, getOriginalFromHistory } from './utils/imageHelpers';
+import { getImageSrc, getOriginalFromHistory, processRemoteImage } from './utils/imageHelpers';
+import * as importUtils from './utils/imageHelpers';
 import { parseSuggestions } from './utils/parseSuggestions';
 import { ImageZoomState } from './utils/zoom';
 import { PromptStudio } from './components/PromptStudio';
@@ -68,11 +70,15 @@ import { ChatSidebar } from './components/ChatSidebar';
 import { MainVisualizer } from './components/MainVisualizer';
 import { SearchInputWithHistory } from './components/SearchInputWithHistory';
 import { SettingsMenu } from './components/SettingsMenu';
+import { twitterService, TweetData } from './services/twitterService';
+import { TwitterParseModal } from './components/TwitterParseModal';
+
 
 
 
 
 const App: React.FC = () => {
+  const { detectedLink, dismissLink, ignoreLink } = useClipboardDetection();
   const { language, t, setLanguage } = useI18n();
   const [isPending, startTransition] = useTransition(); // 用于非阻塞状态更新
   const [showLanding, setShowLanding] = useState(false);
@@ -154,12 +160,41 @@ const App: React.FC = () => {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    if (query.trim()) {
-      setIsGalleryOpen(true);
-    }
   };
   // const [aiInput, setAiInput] = useState(''); // MOVED
   // const [isReverseMenuOpen, setIsReverseMenuOpen] = useState(false); // MOVED
+
+  // Twitter Parsing State
+  const [isTwitterModalOpen, setIsTwitterModalOpen] = useState(false);
+  const [scrapedTweetData, setScrapedTweetData] = useState<TweetData | null>(null);
+  const [isParsingTwitter, setIsParsingTwitter] = useState(false);
+
+  const handleParseTwitterUrl = async (url: string) => {
+    if (isParsingTwitter) return;
+    const tweetId = twitterService.parseTwitterUrl(url);
+    if (!tweetId) {
+      // Optional: Detect if it's a URL at all and maybe handle other imports?
+      // For now, just warn if it looks like they tried to import something but failed
+      if (url.length > 0) {
+        showToast('Clipboard content is not a valid Twitter/X URL', 'info');
+      }
+      return;
+    }
+
+    setIsParsingTwitter(true);
+    try {
+      showToast(t('studio.placeholder.analyzing'), 'info');
+      const data = await twitterService.fetchTweetData(tweetId);
+      setScrapedTweetData(data);
+      setIsTwitterModalOpen(true);
+    } catch (error) {
+      console.error(error);
+      showToast('Failed to parse Twitter link', 'error');
+    } finally {
+      setIsParsingTwitter(false);
+    }
+  };
+
 
   // Refine Mode State MOVED TO PROMPT STUDIO
   // const [selectedRefineMode, setSelectedRefineMode] = useState<RefineModeConfig>('optimize-auto');
@@ -535,9 +570,17 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, isProcessing: true }));
   };
 
-  function handleReset() {
-    setDisplayImage(null);
+  function handleReset(initialData?: { image: string, ratio: string, mimeType: string }) {
+    // If we have initial data (e.g. from Twitter Import), show it immediately
+    // Otherwise clear display
+    if (initialData) {
+      setDisplayImage(initialData.image);
+    } else {
+      setDisplayImage(null);
+    }
+
     setUploaderKey(prev => prev + 1); // Force ImageUploader to remount
+
     // 新建任务：只清空提示词和分析结果，保留历史记录和生成的图片
     setState(prev => ({
       ...INITIAL_STATE,
@@ -545,11 +588,19 @@ const App: React.FC = () => {
       generatedImages: prev.generatedImages,
       generatedImage: null,
       selectedHistoryIndex: -1,
-      currentGroupId: crypto.randomUUID()
+      currentGroupId: crypto.randomUUID(),
+
+      // Apply initial data if provided (Merge gracefully)
+      ...(initialData ? {
+        image: initialData.image,
+        detectedAspectRatio: initialData.ratio,
+        mimeType: initialData.mimeType,
+        isProcessing: false
+      } : {})
     }));
     clearCurrentTask(); // Clear cache when starting new task
     clearSnapshot(); // Clear snapshot for fresh start
-  };
+  }
 
   const handleAnalyzeLayout = async () => {
     if (!state.image || state.isAnalyzingLayout) return;
@@ -1089,6 +1140,93 @@ const App: React.FC = () => {
         <PromptLabModal isOpen={isPromptLabOpen} onClose={() => setIsPromptLabOpen(false)} />
       </React.Suspense>
 
+      {/* Global Twitter Modal */}
+      {scrapedTweetData && (
+        <TwitterParseModal
+          isOpen={isTwitterModalOpen}
+          tweetData={scrapedTweetData}
+          onClose={() => {
+            setIsTwitterModalOpen(false);
+            setScrapedTweetData(null);
+          }}
+          onConfirm={(text, images, importMode) => {
+
+
+
+            // Handle Main Image Mode
+            if (importMode === 'main') {
+              const mainImageUrl = images[0];
+              showToast('Loading image...', 'info');
+
+              importUtils.processRemoteImage(mainImageUrl).then(({ base64, aspectRatioId }) => {
+                // Disable Comparison Mode (Reset View)
+                setIsComparisonMode(false);
+
+                // Standardized reset flow
+                handleReset({
+                  image: base64,
+                  ratio: aspectRatioId,
+                  mimeType: 'image/jpeg'
+                });
+
+                showToast('Image loaded as Main. Ready for analysis.', 'success');
+              }).catch(err => {
+                console.error(err);
+                showToast('Failed to load main image', 'error');
+              });
+              return;
+            }
+
+            // Handle Reference Image Mode
+            if (importMode === 'reference') {
+              // 1. Reset Workspace
+              handleReset();
+
+              // 2. Set Prompt
+              if (text) {
+                setState(prev => ({
+                  ...prev,
+                  editablePrompt: text.trim()
+                }));
+              }
+
+              // 3. Process Images
+              const processReferences = async () => {
+                const processed = await Promise.all(images.map(async (url) => {
+                  try {
+                    const { base64, aspectRatioId } = await importUtils.processRemoteImage(url);
+                    return {
+                      id: `ref-${crypto.randomUUID()}`,
+                      url: base64,
+                      name: 'twitter-image.jpg',
+                      mimeType: 'image/jpeg',
+                      aspectRatio: aspectRatioId
+                    } as ReferenceImage;
+                  } catch (err) {
+                    console.error('Failed to load ref', url, err);
+                    return null;
+                  }
+                }));
+
+                // Update State
+                const validRefs = processed.filter(Boolean) as ReferenceImage[];
+                if (validRefs.length > 0) {
+                  setState(prev => ({
+                    ...prev,
+                    referenceImages: validRefs
+                  }));
+                  showToast(`Imported ${validRefs.length} reference images`, 'success');
+                }
+              };
+
+              processReferences();
+              return;
+            }
+          }}
+        />
+      )}
+
+
       {/* Hidden file input for A shortcut (add reference image) */}
       <input
         type="file"
@@ -1245,6 +1383,7 @@ const App: React.FC = () => {
           handleReset={handleReset}
           handleDownloadHD={handleDownloadHD}
           showToast={showToast}
+          onParseTwitterUrl={handleParseTwitterUrl}
         />
 
         {/* Right Panel: Agent Workbench */}
@@ -1292,6 +1431,7 @@ const App: React.FC = () => {
               setIsHistoryDropdownOpen={setIsHistoryDropdownOpen}
               hoveredHistoryIndex={hoveredHistoryIndex}
               setHoveredHistoryIndex={setHoveredHistoryIndex}
+              onParseTwitterUrl={handleParseTwitterUrl}
             />
           }
         />
@@ -1337,6 +1477,40 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Clipboard Detection Toast */}
+      {detectedLink && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-stone-900/95 backdrop-blur-md border border-stone-700 shadow-2xl rounded-full pl-4 pr-1 py-1 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Icons.Twitter size={16} className="text-blue-400" />
+              <span className="text-sm font-medium text-stone-200">
+                Detected Twitter Link. Import?
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  handleParseTwitterUrl(detectedLink);
+                  ignoreLink(detectedLink);
+                }}
+                className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-full transition-colors"
+              >
+                Import
+              </button>
+              <button
+                onClick={dismissLink}
+                className="p-1.5 text-stone-500 hover:text-stone-300 hover:bg-stone-800 rounded-full transition-colors"
+              >
+                <Icons.X size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 };

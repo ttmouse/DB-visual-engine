@@ -67,7 +67,9 @@ import {
     AlertTriangle,
     Loader2,
     LayoutDashboard,
-    Scan
+    Scan,
+    FileJson,
+    Twitter
 } from 'lucide-react';
 
 const createIcon = (Icon: React.ComponentType<LucideProps>) => {
@@ -137,5 +139,7 @@ export const Icons = {
     AlertTriangle: createIcon(AlertTriangle),
     Loader2: createIcon(Loader2),
     LayoutDashboard: createIcon(LayoutDashboard),
-    Scan: createIcon(Scan)
+    Scan: createIcon(Scan),
+    FileJson: createIcon(FileJson),
+    Twitter: createIcon(Twitter)
 };

@@ -13,9 +13,10 @@ import { extractPromptFromPng } from '../utils/pngMetadata';
 interface ImageUploaderProps {
   onImageSelected: (base64: string, aspectRatio: string, mimeType: string, duration?: number, extractedPrompt?: string) => void;
   disabled: boolean;
+  onParseTwitterUrl: (url: string) => void;
 }
 
-export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, disabled }) => {
+export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, disabled, onParseTwitterUrl }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
@@ -100,7 +101,21 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, d
   // 粘贴功能实现
   useEffect(() => {
     const handleGlobalPaste = (e: ClipboardEvent) => {
+      // Ignore if user is typing in an input/textarea
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
       if (disabled || preview) return;
+
+      // Check for text content (Twitter URL)
+      const text = e.clipboardData?.getData('text');
+      if (text && (text.includes('twitter.com') || text.includes('x.com'))) {
+        onParseTwitterUrl(text);
+        return;
+      }
+
       const items = e.clipboardData?.items;
       if (items) {
         for (let i = 0; i < items.length; i++) {

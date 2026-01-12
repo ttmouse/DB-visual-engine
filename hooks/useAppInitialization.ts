@@ -124,15 +124,11 @@ export const useAppInitialization = (
                             console.error('[Progressive Load] Failed:', err);
                         } finally {
                             isLoadingMore.current = false;
-                            console.log('[Init] Background loading complete.');
                         }
                     };
 
                     // Start background loading - non-blocking
-                    console.log(`[Init] Starting background load. Total: ${total}, Loaded: ${firstItems.length}`);
                     loadMoreBatches().catch(e => console.warn('[Progressive Load] Error:', e));
-                } else {
-                    console.log(`[Init] No more items to load. Total: ${total}`);
                 }
 
                 // Run lazy thumbnail migration for old history items (non-blocking)

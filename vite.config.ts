@@ -81,6 +81,23 @@ export default defineConfig(({ mode }) => {
       port: 3005,
       host: '0.0.0.0',
       proxy: {
+        '/api/twitter': {
+          target: 'https://api.vxtwitter.com',
+          changeOrigin: true,
+          secure: false,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          },
+          rewrite: (path) => path.replace(/^\/api\/twitter/, ''),
+          configure: (proxy, options) => {
+            proxy.on('proxyReq', (proxyReq, req, res) => {
+              console.log('[Twitter Proxy] Requesting:', req.url);
+            });
+            proxy.on('error', (err, req, res) => {
+              console.error('[Twitter Proxy] Error:', err);
+            });
+          }
+        },
         '/api/volcengine-models': {
           target: 'https://ark.ap-southeast.bytepluses.com',
           changeOrigin: true,

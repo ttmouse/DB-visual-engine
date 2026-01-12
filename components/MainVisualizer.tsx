@@ -45,6 +45,7 @@ interface MainVisualizerProps {
     handleReset: () => void;
     handleDownloadHD: (index: number) => void;
     showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
+    onParseTwitterUrl: (url: string) => void;
 }
 
 export const MainVisualizer: React.FC<MainVisualizerProps> = ({
@@ -71,7 +72,8 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
     handleFileSelected,
     handleReset,
     handleDownloadHD,
-    showToast
+    showToast,
+    onParseTwitterUrl
 }) => {
     const { t } = useI18n();
 
@@ -178,6 +180,26 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
                         >
                             <Icons.Plus size={14} />
                         </button>
+
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const text = await navigator.clipboard.readText();
+                                    if (text) {
+                                        onParseTwitterUrl(text);
+                                    } else {
+                                        showToast('Clipboard is empty', 'info');
+                                    }
+                                } catch (err) {
+                                    console.error('Failed to read clipboard:', err);
+                                    showToast('Failed to read clipboard', 'error');
+                                }
+                            }}
+                            className="p-1.5 text-stone-500 hover:text-blue-400 transition-colors rounded-lg hover:bg-blue-900/20"
+                            title="Import from Clipboard / Twitter"
+                        >
+                            <Icons.Link size={14} />
+                        </button>
                     </div>
                 </PanelHeader>
 
@@ -209,7 +231,7 @@ export const MainVisualizer: React.FC<MainVisualizerProps> = ({
                     )}
 
                     {!displayImage && !(generatedImages.length > 0 && selectedHistoryIndex >= 0) ? (
-                        <ImageUploader key={uploaderKey} onImageSelected={handleFileSelected} disabled={isProcessing} />
+                        <ImageUploader key={uploaderKey} onImageSelected={handleFileSelected} disabled={isProcessing} onParseTwitterUrl={onParseTwitterUrl} />
                     ) : (
                         <div className="w-full h-full flex flex-col animate-in fade-in duration-500">
                             {generatedImages.length > 0 && selectedHistoryIndex >= 0 ? (
