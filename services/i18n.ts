@@ -8,7 +8,9 @@ export type I18nKey =
   | 'nav.help'
   | 'nav.sound.enabled'
   | 'nav.sound.disabled'
+  | 'nav.sound.title'
   | 'nav.language'
+  | 'settings.title'
   | 'panel.visualAssets'
   | 'panel.promptStudio'
   | 'panel.promptEditor'
@@ -167,7 +169,9 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'nav.help': '帮助文档',
     'nav.sound.enabled': '音效已启用',
     'nav.sound.disabled': '音效已关闭',
+    'nav.sound.title': '音效',
     'nav.language': '切换语言',
+    'settings.title': '设置',
     'panel.visualAssets': 'Visual Assets',
     'panel.promptStudio': 'Prompt Studio',
     'panel.promptEditor': '提示词编辑器',
@@ -326,7 +330,9 @@ export const translations: Record<Language, Record<I18nKey, string>> = {
     'nav.help': 'Help',
     'nav.sound.enabled': 'Sound Enabled',
     'nav.sound.disabled': 'Sound Disabled',
+    'nav.sound.title': 'Sound',
     'nav.language': 'Switch Language',
+    'settings.title': 'Settings',
     'panel.visualAssets': 'Visual Assets',
     'panel.promptStudio': 'Prompt Studio',
     'panel.promptEditor': 'Prompt Editor',

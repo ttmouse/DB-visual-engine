@@ -67,6 +67,7 @@ import { AgentWorkbench } from './components/AgentWorkbench';
 import { ChatSidebar } from './components/ChatSidebar';
 import { MainVisualizer } from './components/MainVisualizer';
 import { SearchInputWithHistory } from './components/SearchInputWithHistory';
+import { SettingsMenu } from './components/SettingsMenu';
 
 
 
@@ -1190,33 +1191,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-2">
           <StorageIndicator />
           <button onClick={() => setIsPromptLabOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-amber-500 transition-all" title="Prompt Lab"><Icons.Wand2 size={20} /></button>
-          <button
-            onClick={() => {
-              const newLang = language === 'CN' ? 'EN' : 'CN';
-              setLanguage(newLang);
-            }}
-            className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-orange-500 transition-all group"
-            title={language === 'CN' ? 'Switch Language' : '切换语言'}
-          >
-            <div className="relative">
-              <Icons.Languages size={20} />
-              <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[7px] font-black px-0.5 rounded-[2px] uppercase leading-none border border-stone-950 group-hover:bg-orange-600 transition-colors">
-                {language}
-              </span>
-            </div>
-          </button>
-          <button onClick={() => setIsGalleryOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-violet-500 transition-all" title="相册"><Icons.LayoutGrid size={20} /></button>
-          <button onClick={() => setIsHelpOpen(true)} className="p-2.5 rounded-full hover:bg-stone-800 text-stone-400 hover:text-orange-500 transition-all" title="帮助文档"><Icons.Help size={20} /></button>
-          <button
-            onClick={() => {
-              const newState = toggleSound();
-              showToast(newState ? t('nav.sound.enabled') : t('nav.sound.disabled'));
-            }}
-            className={`p-2.5 rounded-full hover:bg-stone-800 transition-all ${soundEnabled ? 'text-blue-500' : 'text-stone-500'}`}
-            title={soundEnabled ? t('nav.sound.enabled') : t('nav.sound.disabled')}
-          >
-            {soundEnabled ? <Icons.Volume2 size={20} /> : <Icons.VolumeX size={20} />}
-          </button>
+
           <div className="w-px h-6 bg-stone-800 mx-1" />
           <div className="flex items-center gap-2 mr-2">
             <button
@@ -1234,7 +1209,12 @@ const App: React.FC = () => {
               {apiMode === 'official' ? t('api.official') : (apiMode === 'volcengine-cn' ? '火山引擎 CN' : (apiMode === 'volcengine' ? '海外火山' : t('api.custom')))}
             </button>
           </div>
-          <button onClick={handleSelectKey} className={`p-2.5 rounded-full hover:bg-stone-800 ${hasKey ? 'text-emerald-500' : 'text-stone-500'}`} title={t('api.keyStatus')}><Icons.Key size={20} /></button>
+          <SettingsMenu
+            onOpenHelp={() => setIsHelpOpen(true)}
+            showToast={showToast}
+            hasKey={hasKey}
+            onSelectKey={handleSelectKey}
+          />
         </div>
       </nav>
 

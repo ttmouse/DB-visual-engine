@@ -1,9 +1,17 @@
 
+/**
+ * [INPUT]: 依赖 React, Icons, LayoutOverlay, ScanningPlaceholder
+ * [OUTPUT]: 渲染 ImageViewer 组件 (单图展示)
+ * [POS]: components/ImageViewer, 基础图片查看器, 被 MainVisualizer 消费
+ * [PROTOCOL]: 变更时更新此头部, 然后检查 CLAUDE.md
+ */
+
 import React, { useRef } from 'react';
 import { Icons } from './Icons';
 import { LayoutOverlay } from './LayoutOverlay';
 import { LayoutElement } from '../types';
 import { ImageZoomState, calculateNewZoom } from '../utils/zoom';
+import { ScanningPlaceholder } from './ScanningPlaceholder';
 
 interface ImageViewerProps {
   src: string;
@@ -15,6 +23,7 @@ interface ImageViewerProps {
   onFullscreen?: () => void;
   zoom?: ImageZoomState;
   onZoomChange?: (newZoom: ImageZoomState) => void;
+  isProcessing?: boolean;
 }
 
 export const ImageViewer: React.FC<ImageViewerProps> = ({
@@ -26,7 +35,8 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
   isAnalyzingLayout,
   onFullscreen,
   zoom = { scale: 1, panX: 0, panY: 0 },
-  onZoomChange
+  onZoomChange,
+  isProcessing = false
 }) => {
   if (!src) return null;
 
@@ -75,10 +85,12 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({
         ref={imgRef}
         src={src}
         alt={alt}
-        className="w-full h-full object-contain block transition-transform duration-100"
+        className={`w-full h-full object-contain block transition-transform duration-100 ${isProcessing ? 'opacity-50 blur-sm scale-95' : 'opacity-100 scale-100'}`}
         style={transformStyle}
         draggable={false}
       />
+
+      {isProcessing && <ScanningPlaceholder />}
 
       {layoutData && <LayoutOverlay data={layoutData} show={true} />}
 

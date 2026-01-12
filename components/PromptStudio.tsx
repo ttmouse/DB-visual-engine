@@ -10,14 +10,11 @@ import ReactDOM from 'react-dom';
 import { Icons } from './Icons';
 import { AspectRatioSelector } from './AspectRatioSelector';
 import { ReferenceImageList } from './ReferenceImageList';
-import { PromptDiffView } from './PromptDiffView';
 import { ChatSidebar } from './ChatSidebar';
-import { SearchInputWithHistory } from './SearchInputWithHistory';
 import { AppState, RefineModeConfig, ReverseModeConfig, ReferenceImage, PipelineProgress, ChatMessage } from '../types';
 import { executeSmartAnalysis, translatePrompt } from '../services/geminiService';
 import { promptManager } from '../services/promptManager';
 import { AgentRole } from '../types';
-import { hasSignificantDiff } from '../utils/promptDiff';
 import { useI18n } from '../hooks/useI18n';
 import { useSoundEffects } from '../hooks/useSoundEffects';
 
@@ -347,10 +344,11 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                         promptError: null // Clear error on edit
                     }))}
                     onKeyDown={(e) => {
-                        // Shift + Enter: Trigger Generate Button
-                        if (e.key === 'Enter' && e.shiftKey) {
+                        // Cmd + Enter (Mac) or Ctrl + Enter (Win): Trigger Generate
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                             e.preventDefault();
-                            if (!state.isGeneratingImage && state.editablePrompt) {
+                            // Multi-threading: Allow submission even if checking isGeneratingImage
+                            if (state.editablePrompt) {
                                 handleGenerateImage(undefined, generateCount);
                             }
                         }

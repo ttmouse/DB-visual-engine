@@ -1,25 +1,33 @@
-# DB-visual-engine - AI Image Generation & Reverse Engineering Engine
-React + Vite + TypeScript + Gemini SDK + Lucide + IDB-Keyval
+# unimage-engine - AI Visual Engine Frontend
+React + Vite + TypeScript + TailwindCSS + GoogleGemini + IDBKeyval
 
 <directory>
-components/ - UI Components (23 items: Agent/Chat/Image tools)
-services/ - Core Business Logic (Gemini/History/Sound)
-hooks/ - Custom React Hooks (Pipeline monitoring)
-utils/ - Helper Utilities
-dist/ - Build Output
+api/ - API configuration and client wrappers
+components/ - UI components and visualizers (32 children)
+constants/ - Global constants and configuration
+docs/ - Project documentation
+hooks/ - Custom React hooks (12 children)
+services/ - Business logic and external service integrations (11 children)
+utils/ - Utility functions and helpers
+public/ - Static assets
+node_modules/ - Dependencies
+src/ - (Empty or Legacy?)
 </directory>
 
 <config>
-package.json - Dependencies & Scripts
-vite.config.ts - Vite Configuration
+App.tsx - Main Application Entry Component
+index.tsx - Application Bootstrapper
+vite.config.ts - Vite Build Configuration
+package.json - Dependency & Script Management
 tsconfig.json - TypeScript Configuration
-todo.md - Task & Feature Tracking
+tailwind.config.js - (Implied) Tailwind Configuration
+CLAUDE.md - L1 Project Constitution (Structural Truth)
+docs/system_capabilities.md - System Capabilities (Functional Truth)
 </config>
 
-法则: 极简·稳定·导航·版本精确·语义纯净
+法则: 极简·稳定·导航·版本精确
 
-## 语义纯净法则 (Semantic Integrity)
-1. **禁止语义交叉占位**：UI 占位数据必须与最终数据的语义源完全一致。
-2. **正确示例**：高清图未加载时，可用该图本身的低质量缩略图占位。
-3. **错误示例**：原图未加载时，拿生成图的缩略图去占位（这就是语义污染）。
-4. **原则**：真实的留白优于虚假的填充。
+[WORKFLOW]:
+1. 架构调整 (Structural Change) -> 更新 CLAUDE.md / L2 / L3
+2. 功能变更 (Functional Change) -> 更新 docs/system_capabilities.md
+3. 双重验证: 每次提交前，需通过 L3 检查结构依赖，通过 Capabilities 检查回归风险。

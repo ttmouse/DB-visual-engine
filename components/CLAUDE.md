@@ -2,30 +2,37 @@
 > L2 | 父级: ../CLAUDE.md
 
 成员清单
-AgentCard.tsx: AI 代理状态可视化的卡片组件
-AgentWorkbench.tsx: 右侧多Agent工作区，包含Tab切换与卡片展示
-ApiKeyModal.tsx: API Key 配置与验证模态框
-ChatDrawer.tsx: 侧边栏聊天历史记录抽屉
-ChatPanel.tsx: 主聊天交互面板，集成消息流
-ChatSidebar.tsx: 右侧辅助聊天历史面板
-DocumentationModal.tsx: 系统文档展示模态框
-GalleryModal.tsx: 全屏相册浏览器，Grid 模式展示所有生成历史
-HistoryThumbnail.tsx: 历史生成记录的缩略图组件
-Icons.tsx: 系统使用的 SVG 图标集合
-ImageComparisonSlider.tsx: 原图与生成图的滑块对比组件
-ImageUploader.tsx: 图片上传区域，支持拖拽
-ImageViewer.tsx: 全屏图片查看器
-LandingPage.tsx: 应用首次加载的引导页
-LayoutOverlay.tsx: 布局分析结果的覆盖层显示
-MainVisualizer.tsx: 左侧可视化核心区域，包含上传与展示
-PanelHeader.tsx: 面板顶部导航与标题栏
-PipelineProgressView.tsx: 反向工程流水线的进度可视化视图
-PipelineStepCard.tsx: 流水线中单个步骤的状态卡片
-PromptLabModal.tsx: 提示词实验室，用于编辑和优化 Prompt
-PromptStudio.tsx: 提示词工作室，核心工作流入口
-ReferenceImageList.tsx: 参考图片列表管理
-StorageIndicator.tsx: 本地存储配额使用指示器
-Toast.tsx: 全局轻量级通知组件
+AgentCard.tsx: Agent 展示卡片
+AgentWorkbench.tsx: Agent 工作台主布局
+ApiKeyModal.tsx: API 密钥配置模态框
+AspectRatioSelector.tsx: 宽高比选择器
+ChatDrawer.tsx: 聊天抽屉组件
+ChatPanel.tsx: 聊天面板组件
+ChatSidebar.tsx: 聊天侧边栏
+DeleteConfirmModal.tsx: 删除确认模态框
+DocumentationModal.tsx: 文档展示模态框
+GalleryModal.tsx: 画廊模态框，支持 Grid/Detail 视图
+HistoryFloatingPanel.tsx: 历史记录悬浮面板
+HistoryThumbnail.tsx: 历史记录缩略图
+Icons.tsx: SVG 图标集合
+ImageComparisonSlider.tsx: 图片对比滑块组件
+ImageDetailViewer.tsx: 图片详情查看器
+ImageUploader.tsx: 图片上传组件
+ImageViewer.tsx: 单图查看器
+LandingPage.tsx: 落地页/欢迎页
+LayoutOverlay.tsx: 布局覆盖层
+MainVisualizer.tsx: 主可视化区域
+PanelHeader.tsx: 面板标题头
+PipelineProgressView.tsx: 流水线进度视图
+PipelineStepCard.tsx: 流水线步骤卡片
+PromptDiffView.tsx: 提示词差异对比视图
+PromptLabModal.tsx: 提示词实验室模态框
+PromptStudio.tsx: 提示词工作室主组件
+ReferenceImageList.tsx: 参考图列表
+ScanningPlaceholder.tsx: 扫描态占位符
+SearchInputWithHistory.tsx: 带历史记录的搜索框
+StorageIndicator.tsx: 存储容量指示器
+Toast.tsx: 全局消息提示组件
 
 法则: 成员完整·一行一文件·父级链接·技术词前置
 
