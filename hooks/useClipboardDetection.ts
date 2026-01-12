@@ -11,11 +11,13 @@ export const useClipboardDetection = (): ClipboardDetectionResult => {
     const [detectedLink, setDetectedLink] = useState<string | null>(null);
     const [ignoredLinks, setIgnoredLinks] = useState<Set<string>>(new Set());
 
-    // Dismiss current link (hide UI but don't permanently ignore if copied again later?) 
-    // Actually, for "Taobao style", if user checks it and closes it, we typically ignore it for this session.
+    // Dismiss current link and ignore it permanently for this session
     const dismissLink = useCallback(() => {
+        if (detectedLink) {
+            setIgnoredLinks(prev => new Set(prev).add(detectedLink));
+        }
         setDetectedLink(null);
-    }, []);
+    }, [detectedLink]);
 
     // Permalink ignore (for this session)
     const ignoreLink = useCallback((link: string) => {
@@ -62,6 +64,18 @@ export const useClipboardDetection = (): ClipboardDetectionResult => {
             document.removeEventListener('visibilitychange', checkClipboard);
         };
     }, [checkClipboard]);
+
+    // Auto-dismiss after 5 seconds and add to ignored list
+    useEffect(() => {
+        if (detectedLink) {
+            const timer = setTimeout(() => {
+                setIgnoredLinks(prev => new Set(prev).add(detectedLink));
+                setDetectedLink(null);
+            }, 5000); // 5 seconds
+
+            return () => clearTimeout(timer);
+        }
+    }, [detectedLink]);
 
     return { detectedLink, dismissLink, ignoreLink };
 };

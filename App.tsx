@@ -65,6 +65,7 @@ import * as importUtils from './utils/imageHelpers';
 import { parseSuggestions } from './utils/parseSuggestions';
 import { ImageZoomState } from './utils/zoom';
 import { PromptStudio } from './components/PromptStudio';
+import { FlyInAnimation } from './components/FlyInAnimation';
 import { AgentWorkbench } from './components/AgentWorkbench';
 import { ChatSidebar } from './components/ChatSidebar';
 import { MainVisualizer } from './components/MainVisualizer';
@@ -98,10 +99,9 @@ const App: React.FC = () => {
   const { apiMode, setApiMode, activeModelName, setActiveModelName, hasKey, setHasKey, switchApiMode } = useApiConfig();
 
   // App Initialization (History, Cache)
+  // App Initialization (History, Cache)
   useAppInitialization(setState, setDisplayImage, setShowLanding);
 
-  // const [isApiDropdownOpen, setIsApiDropdownOpen] = useState(false); // MOVED TO PROMPT STUDIO
-  // const [isMentionMenuOpen, setIsMentionMenuOpen] = useState(false); // MOVED TO PROMPT STUDIO
   const [hoveredHistoryIndex, setHoveredHistoryIndex] = useState<number | null>(null);
 
   const setSelectedHistoryIndex = useCallback((index: number) => {
@@ -164,22 +164,33 @@ const App: React.FC = () => {
   // const [aiInput, setAiInput] = useState(''); // MOVED
   // const [isReverseMenuOpen, setIsReverseMenuOpen] = useState(false); // MOVED
 
+  // Animation State
+  const [animationStartPos, setAnimationStartPos] = useState<{ x: number, y: number, id: number } | null>(null);
+
+  const handleTriggerAnimation = useCallback((pos: { x: number, y: number }) => {
+    setAnimationStartPos({
+      x: pos.x - 20, // Center the 40px element
+      y: pos.y - 20,
+      id: Date.now() // Force remount
+    });
+  }, []);
+
   // Twitter Parsing State
   const [isTwitterModalOpen, setIsTwitterModalOpen] = useState(false);
   const [scrapedTweetData, setScrapedTweetData] = useState<TweetData | null>(null);
   const [isParsingTwitter, setIsParsingTwitter] = useState(false);
 
-  const handleParseTwitterUrl = async (url: string) => {
-    if (isParsingTwitter) return;
+  const handleParseTwitterUrl = useCallback(async (url: string) => {
+    // Only parse if it's a valid Twitter/X URL to avoid unnecessary API calls or errors
     const tweetId = twitterService.parseTwitterUrl(url);
     if (!tweetId) {
-      // Optional: Detect if it's a URL at all and maybe handle other imports?
-      // For now, just warn if it looks like they tried to import something but failed
       if (url.length > 0) {
-        showToast('Clipboard content is not a valid Twitter/X URL', 'info');
+        showToast('Only Twitter/X URLs are supported for import', 'info');
       }
       return;
     }
+
+    if (isParsingTwitter) return;
 
     setIsParsingTwitter(true);
     try {
@@ -193,20 +204,20 @@ const App: React.FC = () => {
     } finally {
       setIsParsingTwitter(false);
     }
-  };
+  }, [isParsingTwitter, t, showToast]);
 
+  // Check for URL query parameter on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlParam = params.get('url');
+    if (urlParam) {
+      // Decode URL if strictly needed, but URLSearchParams handles basic decoding usually.
+    }
+  }, [handleParseTwitterUrl]);
 
-  // Refine Mode State MOVED TO PROMPT STUDIO
-  // const [selectedRefineMode, setSelectedRefineMode] = useState<RefineModeConfig>('optimize-auto');
-  // const [isRefineMenuOpen, setIsRefineMenuOpen] = useState(false);
-
-  // const [refineMenuPosition, setRefineMenuPosition] = useState({ top: 0, left: 0 });
-  // const refineButtonRef = useRef<HTMLButtonElement>(null);
-
-  // Update Refine menu position MOVED
 
   // State for Reverse Mode selection (4 options) - MOVED TO PROMPT STUDIO
-  const [selectedReverseMode, setSelectedReverseMode] = useState<ReverseModeConfig>('quick-auto');
+  // const [selectedReverseMode, setSelectedReverseMode] = useState<ReverseModeConfig>('quick-auto');
 
   // Ref to track auto-generation for Full Pipeline
   const autoGenerateAfterPipeline = useRef(false);
@@ -1432,6 +1443,7 @@ const App: React.FC = () => {
               hoveredHistoryIndex={hoveredHistoryIndex}
               setHoveredHistoryIndex={setHoveredHistoryIndex}
               onParseTwitterUrl={handleParseTwitterUrl}
+              onGenerateAnimation={handleTriggerAnimation}
             />
           }
         />
@@ -1478,6 +1490,16 @@ const App: React.FC = () => {
         )}
       </div>
 
+      {/* Global Animation Layer */}
+      {animationStartPos && (
+        <FlyInAnimation
+          key={animationStartPos.id}
+          startPos={animationStartPos}
+          onComplete={() => setAnimationStartPos(null)}
+          targetSelector="#history-item-0"
+        />
+      )}
+
       {/* Clipboard Detection Toast */}
       {detectedLink && (
         <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300">
@@ -1511,7 +1533,7 @@ const App: React.FC = () => {
       )}
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-    </div>
+    </div >
   );
 };
 

@@ -80,6 +80,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 3005,
       host: '0.0.0.0',
+      fs: {
+        strict: false,
+      },
       proxy: {
         '/api/twitter': {
           target: 'https://api.vxtwitter.com',

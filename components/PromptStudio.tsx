@@ -78,6 +78,7 @@ interface PromptStudioProps {
     hoveredHistoryIndex: number | null;
     setHoveredHistoryIndex: (index: number | null) => void;
     onParseTwitterUrl: (url: string) => void;
+    onGenerateAnimation?: (pos: { x: number, y: number }) => void;
 }
 
 export const PromptStudio: React.FC<PromptStudioProps> = ({
@@ -116,7 +117,8 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
     isHistoryDropdownOpen,
     setIsHistoryDropdownOpen,
     hoveredHistoryIndex,
-    setHoveredHistoryIndex
+    setHoveredHistoryIndex,
+    onGenerateAnimation
 }) => {
     const { t, language } = useI18n();
 
@@ -143,6 +145,7 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
     const versionButtonRef = useRef<HTMLButtonElement>(null);
     const historyButtonRef = useRef<HTMLButtonElement>(null);
     const refineButtonRef = useRef<HTMLButtonElement>(null);
+    const generateButtonRef = useRef<HTMLButtonElement>(null);
     const inputWrapperRef = useRef<HTMLDivElement>(null);
 
     // Chat Panel Position Logic
@@ -353,6 +356,13 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                             e.preventDefault();
                             // Multi-threading: Allow submission even if checking isGeneratingImage
                             if (state.editablePrompt) {
+                                if (onGenerateAnimation && generateButtonRef.current) {
+                                    const rect = generateButtonRef.current.getBoundingClientRect();
+                                    onGenerateAnimation({
+                                        x: rect.left + rect.width / 2,
+                                        y: rect.top + rect.height / 2
+                                    });
+                                }
                                 handleGenerateImage(undefined, generateCount);
                             }
                         }
@@ -633,7 +643,17 @@ export const PromptStudio: React.FC<PromptStudioProps> = ({
                         </div>
                         <div className="relative flex-1 flex min-w-fit">
                             <button
-                                onClick={() => handleGenerateImage(undefined, generateCount)}
+                                ref={generateButtonRef}
+                                onClick={(e) => {
+                                    if (onGenerateAnimation) {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        onGenerateAnimation({
+                                            x: rect.left + rect.width / 2,
+                                            y: rect.top + rect.height / 2
+                                        });
+                                    }
+                                    handleGenerateImage(undefined, generateCount);
+                                }}
                                 disabled={!state.editablePrompt}
                                 className="flex-1 px-3 py-2 bg-stone-100 text-black rounded-l-xl text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40 hover:bg-white transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] whitespace-nowrap"
                             >
